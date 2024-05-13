@@ -1,0 +1,21 @@
+builds:
+  - binary: yc
+    main: ./cmd
+    goos:
+      - windows
+      - darwin
+      - linux
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - name_template: "{{.Binary}}-{{.Arch}}-{{.Os}}"

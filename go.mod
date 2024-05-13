@@ -1,8 +1,6 @@
 module github.com/yomorun/yc-cli
 
-go 1.21.0
-
-toolchain go1.22.3
+go 1.21
 
 require (
 	github.com/matoous/go-nanoid/v2 v2.0.0
