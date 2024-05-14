@@ -1,4 +1,4 @@
-module github.com/yomorun/yc-cli
+module github.com/yomorun/yc
 
 go 1.21
 
