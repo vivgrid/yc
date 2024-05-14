@@ -280,9 +280,9 @@ func main() {
 
 	rootCmd := &cobra.Command{Use: "yc"}
 
-	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.allegrocloud.io:9000", "allegro zipper address")
-	rootCmd.PersistentFlags().StringVar(&appKey, "app-key", "", "allegro app key")
-	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "allegro app secret")
+	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.allegrocloud.io:9000", "vivgrid zipper address")
+	rootCmd.PersistentFlags().StringVar(&appKey, "app-key", "", "vivgrid app key")
+	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "vivgrid app secret")
 	rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "mesh zone number")
 	rootCmd.PersistentFlags().StringVar(&sfnName, "sfn-name", "", "sfn name")
 	rootCmd.MarkPersistentFlagRequired("app-key")
