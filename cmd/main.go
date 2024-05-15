@@ -38,7 +38,7 @@ var (
 func addUploadCmd(rootCmd *cobra.Command) {
 	msg := &pkg.ReqMsgUpload{}
 	var src string
-	cmd := subCmd(rootCmd, pkg.TAG_UPLOAD, msg,
+	cmd := subCmd(rootCmd, pkg.TAG_REQUEST_UPLOAD, "upload", msg,
 		func() error {
 			info, err := os.Stat(src)
 			if err != nil {
@@ -110,7 +110,7 @@ func addUploadCmd(rootCmd *cobra.Command) {
 
 func addCreateCmd(rootCmd *cobra.Command) {
 	var envs []string
-	cmd := subCmd(rootCmd, pkg.TAG_CREATE, &pkg.ReqMsgCreate{
+	cmd := subCmd(rootCmd, pkg.TAG_REQUEST_CREATE, "create", &pkg.ReqMsgCreate{
 		Envs: &envs,
 	}, nil)
 	cmd.Flags().StringArrayVar(&envs, "envs", nil, "app environment variables")
@@ -119,7 +119,7 @@ func addCreateCmd(rootCmd *cobra.Command) {
 
 func addStopCmd(rootCmd *cobra.Command) {
 	var timeout int
-	cmd := subCmd(rootCmd, pkg.TAG_STOP, &pkg.ReqMsgStop{
+	cmd := subCmd(rootCmd, pkg.TAG_REQUEST_STOP, "stop", &pkg.ReqMsgStop{
 		Timeout: &timeout,
 	}, nil)
 	cmd.Flags().IntVar(&timeout, "timeout", 10, "timeout")
@@ -127,29 +127,29 @@ func addStopCmd(rootCmd *cobra.Command) {
 }
 
 func addStartCmd(rootCmd *cobra.Command) {
-	subCmd(rootCmd, pkg.TAG_START, &pkg.ReqMsgStart{}, nil)
+	subCmd(rootCmd, pkg.TAG_REQUEST_START, "start", &pkg.ReqMsgStart{}, nil)
 }
 
 func addRemoveCmd(rootCmd *cobra.Command) {
-	subCmd(rootCmd, pkg.TAG_REMOVE, &pkg.ReqMsgRemove{}, nil)
+	subCmd(rootCmd, pkg.TAG_REQUEST_REMOVE, "remove", &pkg.ReqMsgRemove{}, nil)
 }
 
 func addStatusCmd(rootCmd *cobra.Command) {
-	subCmd(rootCmd, pkg.TAG_STATUS, &pkg.ReqMsgStatus{}, nil)
+	subCmd(rootCmd, pkg.TAG_REQUEST_STATUS, "status", &pkg.ReqMsgStatus{}, nil)
 }
 
 func addLogsCmd(rootCmd *cobra.Command) {
 	var tail int
-	cmd := subCmd(rootCmd, pkg.TAG_LOGS, &pkg.ReqMsgLogs{
+	cmd := subCmd(rootCmd, pkg.TAG_REQUEST_LOGS, "logs", &pkg.ReqMsgLogs{
 		Tail: &tail,
 	}, nil)
 	cmd.Flags().IntVar(&tail, "tail", 20, "tail")
 	bindFlags(cmd.Flags())
 }
 
-func subCmd[T any](rootCmd *cobra.Command, tag uint32, msg *T, f func() error) *cobra.Command {
+func subCmd[T any](rootCmd *cobra.Command, tag uint32, use string, msg *T, f func() error) *cobra.Command {
 	cmd := &cobra.Command{
-		Use: pkg.TagName(tag),
+		Use: use,
 		Run: func(cmd *cobra.Command, args []string) {
 			credential := "app-key-secret:" + appKey + "|" + appSecret
 
@@ -190,7 +190,7 @@ func subCmd[T any](rootCmd *cobra.Command, tag uint32, msg *T, f func() error) *
 
 			var ctx context.Context
 			switch tag {
-			case pkg.TAG_LOGS:
+			case pkg.TAG_REQUEST_LOGS:
 				ctx, cancel = context.WithCancel(context.Background())
 				go func() {
 					for {
@@ -198,7 +198,7 @@ func subCmd[T any](rootCmd *cobra.Command, tag uint32, msg *T, f func() error) *
 						time.Sleep(time.Second * 15)
 					}
 				}()
-			case pkg.TAG_UPLOAD:
+			case pkg.TAG_REQUEST_UPLOAD:
 				ctx, cancel = context.WithCancel(context.Background())
 				source.Write(tag, buf)
 			default:
