@@ -55,43 +55,22 @@ type ResMsgLogs = struct {
 }
 
 const (
-	TAG_UPLOAD          uint32 = 0xFF01
-	TAG_CREATE          uint32 = 0xFF02
-	TAG_STOP            uint32 = 0xFF03
-	TAG_START           uint32 = 0xFF04
-	TAG_REMOVE          uint32 = 0xFF05
-	TAG_STATUS          uint32 = 0xFF06
-	TAG_LOGS            uint32 = 0xFF07
-	TAG_RESPONSE_UPLOAD uint32 = 0xFF21
-	TAG_RESPONSE_CREATE uint32 = 0xFF22
-	TAG_RESPONSE_STOP   uint32 = 0xFF23
-	TAG_RESPONSE_START  uint32 = 0xFF24
-	TAG_RESPONSE_REMOVE uint32 = 0xFF25
-	TAG_RESPONSE_STATUS uint32 = 0xFF26
-	TAG_RESPONSE_LOGS   uint32 = 0xFF27
+	TAG_REQUEST_UPLOAD  uint32 = 0xE201
+	TAG_REQUEST_CREATE  uint32 = 0xE202
+	TAG_REQUEST_STOP    uint32 = 0xE203
+	TAG_REQUEST_START   uint32 = 0xE204
+	TAG_REQUEST_REMOVE  uint32 = 0xE205
+	TAG_REQUEST_STATUS  uint32 = 0xE206
+	TAG_REQUEST_LOGS    uint32 = 0xE207
+	TAG_RESPONSE_UPLOAD uint32 = 0xF201
+	TAG_RESPONSE_CREATE uint32 = 0xF202
+	TAG_RESPONSE_STOP   uint32 = 0xF203
+	TAG_RESPONSE_START  uint32 = 0xF204
+	TAG_RESPONSE_REMOVE uint32 = 0xF205
+	TAG_RESPONSE_STATUS uint32 = 0xF206
+	TAG_RESPONSE_LOGS   uint32 = 0xF207
 )
 
-func TagName(tag uint32) string {
-	switch tag {
-	case TAG_UPLOAD:
-		return "upload"
-	case TAG_CREATE:
-		return "create"
-	case TAG_START:
-		return "start"
-	case TAG_STOP:
-		return "stop"
-	case TAG_REMOVE:
-		return "remove"
-	case TAG_STATUS:
-		return "status"
-	case TAG_LOGS:
-		return "logs"
-	default:
-		return ""
-	}
-}
-
 func ResponseTag(tag uint32) uint32 {
-	return tag + 0x20
+	return tag + 0x1000
 }
