@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"sync/atomic"
@@ -37,180 +36,247 @@ var (
 
 func addUploadCmd(rootCmd *cobra.Command) {
 	msg := &pkg.ReqMsgUpload{}
-	var src string
-	cmd := subCmd(rootCmd, pkg.TAG_REQUEST_UPLOAD, "upload", msg,
-		func() error {
-			info, err := os.Stat(src)
-			if err != nil {
-				return err
-			}
-
-			var data []byte
-
-			if info.IsDir() {
-				f, err := os.CreateTemp("", "yc-*.zip")
-				if err != nil {
-					return err
-				}
-				zipPath := f.Name()
-				defer os.Remove(zipPath)
-				defer f.Close()
-
-				err = uzip.ToZip(src, zipPath, "")
+	cmd := &cobra.Command{
+		Use:   "upload src_file[.go|.zip|dir]",
+		Short: "upload the source code and compile",
+		Args:  cobra.ExactArgs(1),
+		Run: run(
+			pkg.TAG_REQUEST_UPLOAD,
+			msg,
+			func(args ...string) error {
+				src := args[0]
+				info, err := os.Stat(src)
 				if err != nil {
 					return err
 				}
 
-				data, err = os.ReadFile(zipPath)
-				if err != nil {
-					return err
+				var data []byte
+
+				if info.IsDir() {
+					f, err := os.CreateTemp("", "yc-*.zip")
+					if err != nil {
+						return err
+					}
+					zipPath := f.Name()
+					defer os.Remove(zipPath)
+					defer f.Close()
+
+					err = uzip.ToZip(src, zipPath, "")
+					if err != nil {
+						return err
+					}
+
+					data, err = os.ReadFile(zipPath)
+					if err != nil {
+						return err
+					}
+				} else {
+					switch path.Ext(src) {
+					case ".zip":
+						data, err = os.ReadFile(src)
+						if err != nil {
+							return err
+						}
+					case ".go":
+						buf := new(bytes.Buffer)
+						writer := zip.NewWriter(buf)
+
+						f, err := writer.Create("app.go")
+						if err != nil {
+							return err
+						}
+
+						content, err := os.ReadFile(src)
+						if err != nil {
+							return err
+						}
+
+						_, err = f.Write(content)
+						if err != nil {
+							return err
+						}
+
+						writer.Close()
+						data = buf.Bytes()
+					default:
+						return errors.New("unsupported src file type")
+					}
 				}
-			} else {
-				switch path.Ext(src) {
-				case ".zip":
-					data, err = os.ReadFile(src)
-					if err != nil {
-						return err
-					}
-				case ".go":
-					buf := new(bytes.Buffer)
-					writer := zip.NewWriter(buf)
 
-					f, err := writer.Create("app.go")
-					if err != nil {
-						return err
-					}
+				msg.ZipData = data
 
-					content, err := os.ReadFile(src)
-					if err != nil {
-						return err
-					}
-
-					_, err = f.Write(content)
-					if err != nil {
-						return err
-					}
-
-					writer.Close()
-					data = buf.Bytes()
-				default:
-					return errors.New("unsupported src file type")
-				}
-			}
-
-			msg.ZipData = data
-
-			return nil
-		},
-	)
-	cmd.Flags().StringVar(&src, "src", "", "the path of src code [.go | .zip | dir]")
-	cmd.MarkFlagRequired("src")
+				return nil
+			},
+		),
+	}
+	rootCmd.AddCommand(cmd)
 	bindFlags(cmd.Flags())
 }
 
 func addCreateCmd(rootCmd *cobra.Command) {
 	var envs []string
-	cmd := subCmd(rootCmd, pkg.TAG_REQUEST_CREATE, "create", &pkg.ReqMsgCreate{
-		Envs: &envs,
-	}, nil)
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "create and start running SFN with the compiled exec file",
+		Args:  cobra.ExactArgs(0),
+		Run: run(
+			pkg.TAG_REQUEST_CREATE,
+			&pkg.ReqMsgCreate{
+				Envs: &envs,
+			},
+			nil,
+		),
+	}
+	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "envs", nil, "app environment variables")
 	bindFlags(cmd.Flags())
 }
 
 func addStopCmd(rootCmd *cobra.Command) {
 	var timeout int
-	cmd := subCmd(rootCmd, pkg.TAG_REQUEST_STOP, "stop", &pkg.ReqMsgStop{
-		Timeout: &timeout,
-	}, nil)
+	cmd := &cobra.Command{
+		Use:   "stop",
+		Short: "stop the running SFN",
+		Args:  cobra.ExactArgs(0),
+		Run: run(
+			pkg.TAG_REQUEST_STOP,
+			&pkg.ReqMsgStop{
+				Timeout: &timeout,
+			},
+			nil,
+		),
+	}
+	rootCmd.AddCommand(cmd)
 	cmd.Flags().IntVar(&timeout, "timeout", 10, "timeout")
 	bindFlags(cmd.Flags())
 }
 
 func addStartCmd(rootCmd *cobra.Command) {
-	subCmd(rootCmd, pkg.TAG_REQUEST_START, "start", &pkg.ReqMsgStart{}, nil)
+	cmd := &cobra.Command{
+		Use:   "start",
+		Short: "start running the stopped SFN",
+		Args:  cobra.ExactArgs(0),
+		Run: run(
+			pkg.TAG_REQUEST_START,
+			&pkg.ReqMsgStart{},
+			nil,
+		),
+	}
+	rootCmd.AddCommand(cmd)
+	bindFlags(cmd.Flags())
 }
 
 func addRemoveCmd(rootCmd *cobra.Command) {
-	subCmd(rootCmd, pkg.TAG_REQUEST_REMOVE, "remove", &pkg.ReqMsgRemove{}, nil)
+	cmd := &cobra.Command{
+		Use:   "remove",
+		Short: "remove the SFN",
+		Args:  cobra.ExactArgs(0),
+		Run: run(
+			pkg.TAG_REQUEST_REMOVE,
+			&pkg.ReqMsgRemove{},
+			nil,
+		),
+	}
+	rootCmd.AddCommand(cmd)
+	bindFlags(cmd.Flags())
 }
 
 func addStatusCmd(rootCmd *cobra.Command) {
-	subCmd(rootCmd, pkg.TAG_REQUEST_STATUS, "status", &pkg.ReqMsgStatus{}, nil)
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "get the status of the SFN",
+		Args:  cobra.ExactArgs(0),
+		Run: run(
+			pkg.TAG_REQUEST_STATUS,
+			&pkg.ReqMsgStatus{},
+			nil,
+		),
+	}
+	rootCmd.AddCommand(cmd)
+	bindFlags(cmd.Flags())
 }
 
 func addLogsCmd(rootCmd *cobra.Command) {
 	var tail int
-	cmd := subCmd(rootCmd, pkg.TAG_REQUEST_LOGS, "logs", &pkg.ReqMsgLogs{
-		Tail: &tail,
-	}, nil)
+	cmd := &cobra.Command{
+		Use:   "logs",
+		Short: "observe the SFN running logs",
+		Args:  cobra.ExactArgs(0),
+		Run: run(
+			pkg.TAG_REQUEST_LOGS,
+			&pkg.ReqMsgLogs{
+				Tail: &tail,
+			},
+			nil,
+		),
+	}
+	rootCmd.AddCommand(cmd)
 	cmd.Flags().IntVar(&tail, "tail", 20, "tail")
 	bindFlags(cmd.Flags())
 }
 
-func subCmd[T any](rootCmd *cobra.Command, tag uint32, use string, msg *T, f func() error) *cobra.Command {
-	cmd := &cobra.Command{
-		Use: use,
-		Run: func(cmd *cobra.Command, args []string) {
-			credential := "app-key-secret:" + appKey + "|" + appSecret
+func run[T any](tag uint32, reqMsg *T, f func(...string) error) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		credential := "app-key-secret:" + appKey + "|" + appSecret
 
-			sfn := yomo.NewStreamFunction(
-				"yc-response", zipperAddr, yomo.WithSfnCredential(credential))
-			sfn.SetHandler(Handler)
-			sfn.SetObserveDataTags(pkg.ResponseTag(tag))
-			sfn.SetWantedTarget(target)
-			err := sfn.Connect()
+		sfn := yomo.NewStreamFunction(
+			"yc-response", zipperAddr, yomo.WithSfnCredential(credential))
+		sfn.SetHandler(Handler)
+		sfn.SetObserveDataTags(pkg.ResponseTag(tag))
+		sfn.SetWantedTarget(target)
+		err := sfn.Connect()
+		if err != nil {
+			fmt.Println("sfn connect to zipper error:", err)
+			os.Exit(1)
+		}
+		defer sfn.Close()
+
+		source := yomo.NewSource(
+			"yc-request", zipperAddr, yomo.WithCredential(credential))
+		err = source.Connect()
+		if err != nil {
+			fmt.Println("source connect to zipper error:", err)
+			os.Exit(1)
+		}
+		defer source.Close()
+
+		if f != nil {
+			err = f(cmd.Flags().Args()...)
 			if err != nil {
-				log.Fatalln(err)
+				fmt.Println("exec cmd error:", err)
+				os.Exit(1)
 			}
-			defer sfn.Close()
+		}
 
-			source := yomo.NewSource(
-				"yc-request", zipperAddr, yomo.WithCredential(credential))
-			err = source.Connect()
-			if err != nil {
-				log.Fatalln(err)
-			}
-			defer source.Close()
+		req := &pkg.Request[T]{
+			Version: pkg.Version,
+			Target:  target,
+			SfnName: sfnName,
+			Msg:     reqMsg,
+		}
 
-			if f != nil {
-				err = f()
-				if err != nil {
-					log.Fatalln(err)
+		buf, _ := json.Marshal(req)
+
+		var ctx context.Context
+		switch tag {
+		case pkg.TAG_REQUEST_LOGS:
+			ctx, cancel = context.WithCancel(context.Background())
+			go func() {
+				for {
+					source.Write(tag, buf)
+					time.Sleep(time.Second * 15)
 				}
-			}
+			}()
+		case pkg.TAG_REQUEST_UPLOAD:
+			ctx, cancel = context.WithCancel(context.Background())
+			source.Write(tag, buf)
+		default:
+			ctx, cancel = context.WithTimeout(context.Background(), time.Second*15)
+			source.Write(tag, buf)
+		}
 
-			req := &pkg.Request[T]{
-				Version: pkg.Version,
-				Target:  target,
-				SfnName: sfnName,
-				Msg:     msg,
-			}
-
-			buf, _ := json.Marshal(req)
-
-			var ctx context.Context
-			switch tag {
-			case pkg.TAG_REQUEST_LOGS:
-				ctx, cancel = context.WithCancel(context.Background())
-				go func() {
-					for {
-						source.Write(tag, buf)
-						time.Sleep(time.Second * 15)
-					}
-				}()
-			case pkg.TAG_REQUEST_UPLOAD:
-				ctx, cancel = context.WithCancel(context.Background())
-				source.Write(tag, buf)
-			default:
-				ctx, cancel = context.WithTimeout(context.Background(), time.Second*15)
-				source.Write(tag, buf)
-			}
-
-			<-ctx.Done()
-		},
+		<-ctx.Done()
 	}
-	rootCmd.AddCommand(cmd)
-	return cmd
 }
 
 func Handler(yctx serverless.Context) {
@@ -265,7 +331,8 @@ func bindFlags(fs *pflag.FlagSet) {
 func main() {
 	nanoid, err := gonanoid.New(8)
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Println("generate target error:", err)
+		os.Exit(1)
 	}
 	target = nanoid
 
@@ -275,7 +342,8 @@ func main() {
 
 	err = initViper()
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Println("init viper error:", err)
+		os.Exit(1)
 	}
 
 	rootCmd := &cobra.Command{Use: "yc"}
