@@ -43,7 +43,7 @@ func addUploadCmd(rootCmd *cobra.Command) {
 		Run: run(
 			pkg.TAG_REQUEST_UPLOAD,
 			msg,
-			func(args ...string) error {
+			func(args []string) error {
 				src := args[0]
 				info, err := os.Stat(src)
 				if err != nil {
@@ -215,7 +215,7 @@ func addLogsCmd(rootCmd *cobra.Command) {
 	bindFlags(cmd.Flags())
 }
 
-func run[T any](tag uint32, reqMsg *T, f func(...string) error) func(cmd *cobra.Command, args []string) {
+func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		credential := "app-key-secret:" + appKey + "|" + appSecret
 
@@ -241,7 +241,7 @@ func run[T any](tag uint32, reqMsg *T, f func(...string) error) func(cmd *cobra.
 		defer source.Close()
 
 		if f != nil {
-			err = f(cmd.Flags().Args()...)
+			err = f(cmd.Flags().Args())
 			if err != nil {
 				fmt.Println("exec cmd error:", err)
 				os.Exit(1)
