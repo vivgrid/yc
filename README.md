@@ -13,7 +13,9 @@ curl "https://bina.egoist.dev/yomorun/yc" | sh
 Build from source:
 
 ```sh
-go build -o bin/yc ./cmd
+make
+
+sudo cp ./bin/yc /usr/local/bin/
 ```
 
 Run:

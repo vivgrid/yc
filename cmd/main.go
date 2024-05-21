@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"sync/atomic"
 	"time"
@@ -33,6 +34,15 @@ var (
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
 )
+
+func execProcess(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = ""
+	cmd.Env = os.Environ()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
 
 func addUploadCmd(rootCmd *cobra.Command) {
 	msg := &pkg.ReqMsgUpload{}
@@ -128,7 +138,7 @@ func addCreateCmd(rootCmd *cobra.Command) {
 		),
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.Flags().StringArrayVar(&envs, "envs", nil, "app environment variables")
+	cmd.Flags().StringArrayVar(&envs, "env", nil, "app environment variables")
 	bindFlags(cmd.Flags())
 }
 
@@ -279,6 +289,51 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 	}
 }
 
+func addDeployCmd(rootCmd *cobra.Command) {
+	var envs []string
+	cmd := &cobra.Command{
+		Use:   "deploy",
+		Short: "alias of chaining commands to deploy a SFN (upload -> stop -> remove -> create)",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			yc := os.Args[0]
+
+			src := args[0]
+			err := execProcess(yc, "upload", src)
+			if err != nil {
+				fmt.Println("yc upload error:", err)
+				os.Exit(1)
+			}
+
+			err = execProcess(yc, "stop")
+			if err != nil {
+				fmt.Println("yc stop error:", err)
+				os.Exit(1)
+			}
+
+			err = execProcess(yc, "remove")
+			if err != nil {
+				fmt.Println("yc remove error:", err)
+				os.Exit(1)
+			}
+
+			createArgs := []string{"create"}
+			for _, env := range envs {
+				createArgs = append(createArgs, "--env")
+				createArgs = append(createArgs, env)
+			}
+			err = execProcess(yc, createArgs...)
+			if err != nil {
+				fmt.Println("yc create error:", err)
+				os.Exit(1)
+			}
+		},
+	}
+	rootCmd.AddCommand(cmd)
+	cmd.Flags().StringArrayVar(&envs, "env", nil, "app environment variables")
+	bindFlags(cmd.Flags())
+}
+
 func Handler(yctx serverless.Context) {
 	var res pkg.Response
 	err := json.Unmarshal(yctx.Data(), &res)
@@ -337,7 +392,8 @@ func main() {
 	target = nanoid
 
 	if _, ok := os.LookupEnv("YOMO_LOG_LEVEL"); !ok {
-		os.Setenv("YOMO_LOG_LEVEL", "error")
+		os.Setenv("YOMO_LOG_OUTPUT", "/dev/null")
+		os.Setenv("YOMO_LOG_ERROR_OUTPUT", "/dev/null")
 	}
 
 	err = initViper()
@@ -365,6 +421,7 @@ func main() {
 	addRemoveCmd(rootCmd)
 	addStatusCmd(rootCmd)
 	addLogsCmd(rootCmd)
+	addDeployCmd(rootCmd)
 
 	err = rootCmd.Execute()
 	if err != nil {
