@@ -127,7 +127,7 @@ func addCreateCmd(rootCmd *cobra.Command) {
 	var envs []string
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "create and start running SFN with the compiled exec file",
+		Short: "Create and start the serverless",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_CREATE,
@@ -138,7 +138,7 @@ func addCreateCmd(rootCmd *cobra.Command) {
 		),
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.Flags().StringArrayVar(&envs, "env", nil, "app environment variables")
+	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variable")
 	bindFlags(cmd.Flags())
 }
 
@@ -157,14 +157,14 @@ func addStopCmd(rootCmd *cobra.Command) {
 		),
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.Flags().IntVar(&timeout, "timeout", 10, "timeout")
+	cmd.Flags().IntVar(&timeout, "timeout", 10, "Set timeout value")
 	bindFlags(cmd.Flags())
 }
 
 func addStartCmd(rootCmd *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "start running the stopped SFN",
+		Short: "Start the serverless",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_START,
@@ -179,7 +179,7 @@ func addStartCmd(rootCmd *cobra.Command) {
 func addRemoveCmd(rootCmd *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "remove",
-		Short: "remove the SFN",
+		Short: "Delete current serverless deployment",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_REMOVE,
@@ -194,7 +194,7 @@ func addRemoveCmd(rootCmd *cobra.Command) {
 func addStatusCmd(rootCmd *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "get the status of the SFN",
+		Short: "Get the status of the serverless",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_STATUS,
@@ -210,7 +210,7 @@ func addLogsCmd(rootCmd *cobra.Command) {
 	var tail int
 	cmd := &cobra.Command{
 		Use:   "logs",
-		Short: "observe the SFN running logs",
+		Short: "Observe serverless executing logs in real-time",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_LOGS,
@@ -221,7 +221,7 @@ func addLogsCmd(rootCmd *cobra.Command) {
 		),
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.Flags().IntVar(&tail, "tail", 20, "tail")
+	cmd.Flags().IntVar(&tail, "tail", 20, "Tail logs")
 	bindFlags(cmd.Flags())
 }
 
@@ -293,7 +293,7 @@ func addDeployCmd(rootCmd *cobra.Command) {
 	var envs []string
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "alias of chaining commands to deploy a SFN (upload -> stop -> remove -> create)",
+		Short: "Alias of chaining commands to deploy a serverelss (upload -> stop -> remove -> create)",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			yc := os.Args[0]
@@ -330,7 +330,7 @@ func addDeployCmd(rootCmd *cobra.Command) {
 		},
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.Flags().StringArrayVar(&envs, "env", nil, "app environment variables")
+	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variables")
 	bindFlags(cmd.Flags())
 }
 
@@ -404,11 +404,11 @@ func main() {
 
 	rootCmd := &cobra.Command{Use: "yc"}
 
-	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.allegrocloud.io:9000", "vivgrid zipper address")
-	rootCmd.PersistentFlags().StringVar(&appKey, "app-key", "", "vivgrid app key")
-	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "vivgrid app secret")
-	rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "mesh zone number")
-	rootCmd.PersistentFlags().StringVar(&sfnName, "sfn-name", "", "sfn name")
+	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper service endpoint")
+	rootCmd.PersistentFlags().StringVar(&appKey, "app-key", "", "Vivgrid APP_KEY")
+	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "Vivgrid APP_SECRET")
+	rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Multi-region support")
+	rootCmd.PersistentFlags().StringVar(&sfnName, "sfn-name", "", "Serverless name")
 	rootCmd.MarkPersistentFlagRequired("app-key")
 	rootCmd.MarkPersistentFlagRequired("app-secret")
 	rootCmd.MarkPersistentFlagRequired("sfn-name")
