@@ -392,7 +392,8 @@ func main() {
 	target = nanoid
 
 	if _, ok := os.LookupEnv("YOMO_LOG_LEVEL"); !ok {
-		os.Setenv("YOMO_LOG_LEVEL", "error")
+		os.Setenv("YOMO_LOG_OUTPUT", "/dev/null")
+		os.Setenv("YOMO_LOG_ERROR_OUTPUT", "/dev/null")
 	}
 
 	err = initViper()
