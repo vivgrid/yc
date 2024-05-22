@@ -48,7 +48,7 @@ func addUploadCmd(rootCmd *cobra.Command) {
 	msg := &pkg.ReqMsgUpload{}
 	cmd := &cobra.Command{
 		Use:   "upload src_file[.go|.zip|dir]",
-		Short: "upload the source code and compile",
+		Short: "Upload the source code and compile",
 		Args:  cobra.ExactArgs(1),
 		Run: run(
 			pkg.TAG_REQUEST_UPLOAD,
@@ -146,7 +146,7 @@ func addStopCmd(rootCmd *cobra.Command) {
 	var timeout int
 	cmd := &cobra.Command{
 		Use:   "stop",
-		Short: "stop the running SFN",
+		Short: "Stop the running serverless",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_STOP,
@@ -194,7 +194,7 @@ func addRemoveCmd(rootCmd *cobra.Command) {
 func addStatusCmd(rootCmd *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "Get the status of the serverless",
+		Short: "Show serverless status",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_STATUS,
@@ -210,7 +210,7 @@ func addLogsCmd(rootCmd *cobra.Command) {
 	var tail int
 	cmd := &cobra.Command{
 		Use:   "logs",
-		Short: "Observe serverless executing logs in real-time",
+		Short: "Observe serverless logs in real-time",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_LOGS,
@@ -293,7 +293,7 @@ func addDeployCmd(rootCmd *cobra.Command) {
 	var envs []string
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Alias of chaining commands to deploy a serverelss (upload -> stop -> remove -> create)",
+		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> stop -> remove -> create)",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			yc := os.Args[0]
