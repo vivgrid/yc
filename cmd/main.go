@@ -121,6 +121,7 @@ func addUploadCmd(rootCmd *cobra.Command) {
 	}
 	rootCmd.AddCommand(cmd)
 	bindFlags(cmd.Flags())
+	cmd.GroupID = groupIDGeneral
 }
 
 func addCreateCmd(rootCmd *cobra.Command) {
@@ -140,6 +141,7 @@ func addCreateCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variable")
 	bindFlags(cmd.Flags())
+	cmd.GroupID = groupIDDeployment
 }
 
 func addStopCmd(rootCmd *cobra.Command) {
@@ -159,6 +161,7 @@ func addStopCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().IntVar(&timeout, "timeout", 10, "Set timeout value")
 	bindFlags(cmd.Flags())
+	cmd.GroupID = groupIDState
 }
 
 func addStartCmd(rootCmd *cobra.Command) {
@@ -174,6 +177,7 @@ func addStartCmd(rootCmd *cobra.Command) {
 	}
 	rootCmd.AddCommand(cmd)
 	bindFlags(cmd.Flags())
+	cmd.GroupID = groupIDState
 }
 
 func addRemoveCmd(rootCmd *cobra.Command) {
@@ -189,6 +193,7 @@ func addRemoveCmd(rootCmd *cobra.Command) {
 	}
 	rootCmd.AddCommand(cmd)
 	bindFlags(cmd.Flags())
+	cmd.GroupID = groupIDDeployment
 }
 
 func addStatusCmd(rootCmd *cobra.Command) {
@@ -204,6 +209,7 @@ func addStatusCmd(rootCmd *cobra.Command) {
 	}
 	rootCmd.AddCommand(cmd)
 	bindFlags(cmd.Flags())
+	cmd.GroupID = groupIDMonitoring
 }
 
 func addLogsCmd(rootCmd *cobra.Command) {
@@ -223,6 +229,7 @@ func addLogsCmd(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().IntVar(&tail, "tail", 20, "Tail logs")
 	bindFlags(cmd.Flags())
+	cmd.GroupID = groupIDMonitoring
 }
 
 func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.Command, args []string) {
@@ -327,11 +334,13 @@ func addDeployCmd(rootCmd *cobra.Command) {
 				fmt.Println("yc create error:", err)
 				os.Exit(1)
 			}
+			fmt.Println("Successfully!")
 		},
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variables")
 	bindFlags(cmd.Flags())
+	cmd.GroupID = groupIDGeneral
 }
 
 func Handler(yctx serverless.Context) {
@@ -412,9 +421,9 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "Vivgrid APP_SECRET")
 	rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Multi-region support")
 	rootCmd.PersistentFlags().StringVar(&sfnName, "sfn-name", "", "Serverless name")
-	rootCmd.MarkPersistentFlagRequired("app-key")
-	rootCmd.MarkPersistentFlagRequired("app-secret")
-	rootCmd.MarkPersistentFlagRequired("sfn-name")
+	// rootCmd.MarkPersistentFlagRequired("app-key")
+	// rootCmd.MarkPersistentFlagRequired("app-secret")
+	// rootCmd.MarkPersistentFlagRequired("sfn-name")
 	bindFlags(rootCmd.PersistentFlags())
 
 	addUploadCmd(rootCmd)
@@ -426,9 +435,39 @@ func main() {
 	addLogsCmd(rootCmd)
 	addDeployCmd(rootCmd)
 
+	rootCmd.AddGroup(&cobra.Group{
+		ID:    groupIDGeneral,
+		Title: colorGreen + "General" + colorReset,
+	})
+
+	rootCmd.AddGroup(&cobra.Group{
+		ID:    groupIDDeployment,
+		Title: colorGreen + "Manage serverless deployment" + colorReset,
+	})
+
+	rootCmd.AddGroup(&cobra.Group{
+		ID:    groupIDState,
+		Title: colorGreen + "Manage serverless state" + colorReset,
+	})
+
+	rootCmd.AddGroup(&cobra.Group{
+		ID:    groupIDMonitoring,
+		Title: colorGreen + "Observability" + colorReset,
+	})
+
 	err = rootCmd.Execute()
 	if err != nil {
 		fmt.Println("cmd error:", err)
 		os.Exit(1)
 	}
 }
+
+const (
+	groupIDDeployment = "deployment"
+	groupIDState      = "state"
+	groupIDMonitoring = "monitoring"
+	groupIDGeneral    = "general"
+
+	colorReset = "\033[0m"
+	colorGreen = "\033[34m"
+)
