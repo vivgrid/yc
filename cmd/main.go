@@ -127,7 +127,7 @@ func addCreateCmd(rootCmd *cobra.Command) {
 	var envs []string
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create and start the serverless",
+		Short: "Create serverless deployment and start it",
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_CREATE,
@@ -402,7 +402,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	rootCmd := &cobra.Command{Use: "yc"}
+	rootCmd := &cobra.Command{
+		Use:   "yc",
+		Short: "Manage your Geo-distributd Serverless on Vivgrid.com from the command line",
+	}
 
 	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper service endpoint")
 	rootCmd.PersistentFlags().StringVar(&appKey, "app-key", "", "Vivgrid APP_KEY")
