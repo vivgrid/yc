@@ -1,3 +1,5 @@
 package pkg
 
-const Version uint32 = 1
+const SpecVersion uint32 = 1
+
+var CliVersion = "devel"

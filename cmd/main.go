@@ -44,6 +44,19 @@ func execProcess(name string, args ...string) error {
 	return cmd.Run()
 }
 
+func addVersionCmd(rootCmd *cobra.Command) {
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Show version",
+		Args:  cobra.ExactArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("yc version:", pkg.CliVersion)
+		},
+	}
+	rootCmd.AddCommand(cmd)
+	bindFlags(cmd.Flags())
+}
+
 func addUploadCmd(rootCmd *cobra.Command) {
 	msg := &pkg.ReqMsgUpload{}
 	cmd := &cobra.Command{
@@ -266,7 +279,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		}
 
 		req := &pkg.Request[T]{
-			Version: pkg.Version,
+			Version: pkg.SpecVersion,
 			Target:  target,
 			SfnName: sfnName,
 			Msg:     reqMsg,
@@ -426,6 +439,7 @@ func main() {
 	// rootCmd.MarkPersistentFlagRequired("sfn-name")
 	bindFlags(rootCmd.PersistentFlags())
 
+	addVersionCmd(rootCmd)
 	addUploadCmd(rootCmd)
 	addCreateCmd(rootCmd)
 	addStopCmd(rootCmd)
