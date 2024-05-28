@@ -21,7 +21,7 @@ import (
 	"github.com/yomorun/yomo"
 	"github.com/yomorun/yomo/serverless"
 
-	"github.com/yomorun/yc/pkg"
+	"github.com/vivgrid/yc/pkg"
 )
 
 var (
