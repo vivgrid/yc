@@ -7,7 +7,7 @@ The command line client for vivgrid service.
 Install the compiled binary:
 
 ```sh
-curl "https://bina.egoist.dev/yomorun/yc" | sh
+curl "https://bina.egoist.dev/vivgrid/yc" | sh
 ```
 
 Build from source:
