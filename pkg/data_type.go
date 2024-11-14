@@ -17,7 +17,16 @@ type Response struct {
 	Msg      string `json:"msg"`
 }
 
+type AppType int
+
+const (
+	AppUnknown AppType = iota // 0
+	AppGo                     // 1
+	AppNodeJS                 // 2
+)
+
 type ReqMsgUpload struct {
+	AppType `json:"app_type"`
 	ZipData []byte `json:"zip_data"`
 }
 type ResMsgUpload struct {
