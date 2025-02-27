@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,7 +20,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/u-root/u-root/pkg/uzip"
 	"github.com/yomorun/yomo"
 	"github.com/yomorun/yomo/serverless"
 
@@ -84,10 +86,33 @@ func addUploadCmd(rootCmd *cobra.Command) {
 					defer os.Remove(zipPath)
 					defer f.Close()
 
-					err = uzip.ToZip(src, zipPath, "")
+					// these should be excluded from the zip
+					ignorePatterns := []string{".git", ".gitignore", "node_modules", "yc.yml", "*.js"}
+					// read .gitignore if it exists
+					gitignorePath := path.Join(src, ".gitignore")
+					if gitIgnoreData, err := os.ReadFile(gitignorePath); err == nil {
+						lines := strings.Split(string(gitIgnoreData), "\n")
+						for _, line := range lines {
+							line = strings.TrimSpace(line)
+							// Skip comments and empty lines
+							if line != "" && !strings.HasPrefix(line, "#") {
+								ignorePatterns = append(ignorePatterns, line)
+							}
+						}
+					}
+
+					// Create custom ToZip function with exclusions
+					err = ToZipWithExclusions(src, zipPath, ignorePatterns)
 					if err != nil {
 						return err
 					}
+
+					// err = uzip.ToZip(src, zipPath, "")
+					// if err != nil {
+					// 	return err
+					// }
+
+					// log.Println("----zip done----")
 
 					data, err = os.ReadFile(zipPath)
 					if err != nil {
@@ -485,3 +510,122 @@ const (
 	colorReset = "\033[0m"
 	colorGreen = "\033[34m"
 )
+
+// ToZipWithExclusions creates a zip file with the specified exclusions
+func ToZipWithExclusions(src, dst string, ignorePatterns []string) error {
+	zipFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	// Function to check if path matches any ignore pattern
+	isIgnored := func(path string, isDir bool) bool {
+		// Get relative path from source
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return false
+		}
+
+		if relPath == "." {
+			return false
+		}
+
+		for _, pattern := range ignorePatterns {
+			// Handle directory patterns ending with /
+			if strings.HasSuffix(pattern, "/") && isDir {
+				dirPattern := strings.TrimSuffix(pattern, "/")
+				if matched, _ := filepath.Match(dirPattern, filepath.Base(relPath)); matched {
+					return true
+				}
+				// Also check if directory is in the path
+				if strings.Contains(relPath, dirPattern+"/") {
+					return true
+				}
+			}
+
+			// Direct match for files
+			if matched, _ := filepath.Match(pattern, filepath.Base(relPath)); matched {
+				return true
+			}
+
+			// Handle glob patterns with *
+			if strings.Contains(pattern, "*") {
+				if matched, _ := filepath.Match(pattern, relPath); matched {
+					return true
+				}
+			}
+
+			// Check exact path match
+			if relPath == pattern || relPath+"/" == pattern {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Walk through the source directory
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip if path should be ignored
+		if isIgnored(path, info.IsDir()) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Get relative path
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		// Skip root directory
+		if relPath == "." {
+			return nil
+		}
+
+		// Create zip header
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		// Set proper path in the zip
+		header.Name = relPath
+		if info.IsDir() {
+			header.Name += "/"
+		} else {
+			// Use DEFLATE for regular files
+			header.Method = zip.Deflate
+		}
+
+		// For directories, just add the header
+		if info.IsDir() {
+			_, err = zipWriter.CreateHeader(header)
+			return err
+		}
+
+		// For files, add content
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(writer, file)
+		return err
+	})
+}
