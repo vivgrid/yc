@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,8 +12,8 @@ import (
 )
 
 // ToZipWithExclusions creates a zip file from src, ignoring files that match
-// the baseIgnorePatterns or any applicable .gitignore rule.
-func ToZipWithExclusions(src, dst string) error {
+// the ignore patterns from vivgridIgnoreFile or any applicable .gitignore rule.
+func ZipWithExclusions(src, dst, vivgridIgnoreFile string) error {
 	zipFile, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -22,8 +23,26 @@ func ToZipWithExclusions(src, dst string) error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	// Base ignore patterns.
-	baseIgnorePatterns := []string{".git", ".gitignore", "node_modules/", "yc.yml", "*.js"}
+	// Read ignore patterns from vivgridIgnoreFile.
+	f, err := os.Open(vivgridIgnoreFile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	var baseIgnorePatterns []string
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments.
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		baseIgnorePatterns = append(baseIgnorePatterns, line)
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
 
 	// Cache for compiled .gitignore files: key is directory path.
 	gitIgnoreCache := make(map[string]*gitignore.GitIgnore)
@@ -150,7 +169,7 @@ func ToZipWithExclusions(src, dst string) error {
 		}
 		defer file.Close()
 
-		// Create zip header using the relative file path
+		// Create zip header using the relative file path.
 		header, err := zip.FileInfoHeader(info)
 		if err != nil {
 			return err
