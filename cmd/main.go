@@ -82,22 +82,6 @@ func addUploadCmd(rootCmd *cobra.Command) {
 					defer os.Remove(zipPath)
 					defer f.Close()
 
-					// these should be excluded from the zip
-					// ignorePatterns := []string{".git", ".gitignore", "node_modules/", "yc.yml", "*.js"}
-
-					// // read .gitignore if it exists
-					// gitignorePath := path.Join(src, ".gitignore")
-					// if gitIgnoreData, err := os.ReadFile(gitignorePath); err == nil {
-					// 	lines := strings.Split(string(gitIgnoreData), "\n")
-					// 	for _, line := range lines {
-					// 		line = strings.TrimSpace(line)
-					// 		// Skip comments and empty lines
-					// 		if line != "" && !strings.HasPrefix(line, "#") {
-					// 			ignorePatterns = append(ignorePatterns, line)
-					// 		}
-					// 	}
-					// }
-
 					// create a file with name .vivgridignore if it not exists
 					vivgridIgnoreFile := path.Join(src, ".vivgridignore")
 					if _, err := os.Stat(vivgridIgnoreFile); os.IsNotExist(err) {
@@ -108,7 +92,7 @@ func addUploadCmd(rootCmd *cobra.Command) {
 						}
 						defer f.Close()
 
-						ignorePatterns := []string{".git", ".gitignore", "node_modules/", "yc.yml", ".vivgridignore", "*.js"}
+						ignorePatterns := []string{".git", ".gitignore", "node_modules/", "yc.yml", ".vivgridignore", ".wrapper.ts", "*.js"}
 						// write the patterns to the file
 						for _, pattern := range ignorePatterns {
 							_, err = f.WriteString(pattern + "\n")
@@ -123,13 +107,6 @@ func addUploadCmd(rootCmd *cobra.Command) {
 					if err != nil {
 						return err
 					}
-
-					// err = uzip.ToZip(src, zipPath, "")
-					// if err != nil {
-					// 	return err
-					// }
-
-					// log.Println("----zip done----")
 
 					data, err = os.ReadFile(zipPath)
 					if err != nil {

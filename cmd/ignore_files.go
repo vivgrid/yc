@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -22,16 +23,7 @@ func ZipWithExclusions(src, dst, vivgridIgnoreFile string) error {
 	defer zipWriter.Close()
 
 	vivMatcher, _ := dotignore.NewPatternMatcherFromFile(".vivgridignore")
-	// if err != nil {
-	// 	if !os.IsNotExist(err) {
-	// 		return err
-	// 	}
-	// }
-
 	gitMatcher, _ := dotignore.NewPatternMatcherFromFile(".gitignore")
-	// if err != nil {
-	// 	log.Println("** .gitignore absence")
-	// }
 
 	// traverse the src directory, check each file against the ignore patterns
 	// and add it to the zip file if it doesn't match
@@ -61,26 +53,40 @@ func ZipWithExclusions(src, dst, vivgridIgnoreFile string) error {
 		}
 
 		log.Println("\t ** add to zip, [", path, "]")
-		return nil
 
-		// // add the file to the zip archive
-		// relPath, err := filepath.Rel(src, path)
-		// if err != nil {
-		// 	return err
-		// }
+		// Compute relative path for zip header.
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
 
-		// file, err := os.Open(path)
-		// if err != nil {
-		// 	return err
-		// }
-		// defer file.Close()
+		// add the file to the zip archive
+		// Create zip header using the relative file path.
+		fileInfo, err := d.Info()
+		if err != nil {
+			return err
+		}
+		header, err := zip.FileInfoHeader(fileInfo)
+		if err != nil {
+			return err
+		}
+		// Ensure consistent use of forward slashes.
+		header.Name = filepath.ToSlash(relPath)
+		header.Method = zip.Deflate
 
-		// zipFile, err := zipWriter.Create(relPath)
-		// if err != nil {
-		// 	return err
-		// }
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
 
-		// _, err = io.Copy(zipFile, file)
-		// return err
+		// Open the source file.
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = io.Copy(writer, f)
+		return err
 	})
 }
