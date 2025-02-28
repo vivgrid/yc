@@ -4,10 +4,10 @@ go 1.21
 
 require (
 	github.com/matoous/go-nanoid/v2 v2.1.0
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
-	github.com/u-root/u-root v0.14.0
 	github.com/yomorun/yomo v1.18.9
 )
 
@@ -16,6 +16,7 @@ require (
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/caarlos0/env/v6 v6.10.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
+	github.com/codeglyph/go-dotignore v1.0.2 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
