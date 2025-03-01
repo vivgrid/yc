@@ -52,8 +52,6 @@ func ZipWithExclusions(src, dst, vivgridIgnoreFile string) error {
 			return nil
 		}
 
-		log.Println("\t ** add to zip, [", path, "]")
-
 		// Compute relative path for zip header.
 		relPath, err := filepath.Rel(src, path)
 		if err != nil {
