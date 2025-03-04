@@ -25,7 +25,6 @@ import (
 var (
 	target     string
 	zipperAddr string
-	appKey     string
 	appSecret  string
 	sfnName    string
 	meshNum    uint32
@@ -266,10 +265,7 @@ func addLogsCmd(rootCmd *cobra.Command) {
 
 func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
-		credential := "app-key-secret:" + appKey + "|" + appSecret
-
-		sfn := yomo.NewStreamFunction(
-			"yc-response", zipperAddr, yomo.WithSfnCredential(credential))
+		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(appSecret))
 		sfn.SetHandler(Handler)
 		sfn.SetObserveDataTags(pkg.ResponseTag(tag))
 		sfn.SetWantedTarget(target)
@@ -280,8 +276,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		}
 		defer sfn.Close()
 
-		source := yomo.NewSource(
-			"yc-request", zipperAddr, yomo.WithCredential(credential))
+		source := yomo.NewSource("yc-request", zipperAddr, yomo.WithCredential(appSecret))
 		err = source.Connect()
 		if err != nil {
 			fmt.Println("source connect to zipper error:", err)
@@ -449,13 +444,9 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper service endpoint")
-	rootCmd.PersistentFlags().StringVar(&appKey, "app-key", "", "Vivgrid APP_KEY")
 	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "Vivgrid APP_SECRET")
 	rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Multi-region support")
 	rootCmd.PersistentFlags().StringVar(&sfnName, "sfn-name", "", "Serverless name")
-	// rootCmd.MarkPersistentFlagRequired("app-key")
-	// rootCmd.MarkPersistentFlagRequired("app-secret")
-	// rootCmd.MarkPersistentFlagRequired("sfn-name")
 	bindFlags(rootCmd.PersistentFlags())
 
 	addVersionCmd(rootCmd)
