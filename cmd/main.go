@@ -15,7 +15,6 @@ import (
 
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/vivgrid/yc/pkg"
 	"github.com/yomorun/yomo"
@@ -24,10 +23,10 @@ import (
 
 var (
 	target     string
-	zipperAddr string
+	zipperAddr string = "zipper.vivgrid.com:9000"
 	appSecret  string
 	sfnName    string
-	meshNum    uint32
+	meshNum    uint32 = 7
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
 )
@@ -51,7 +50,6 @@ func addVersionCmd(rootCmd *cobra.Command) {
 		},
 	}
 	rootCmd.AddCommand(cmd)
-	bindFlags(cmd.Flags())
 }
 
 func addUploadCmd(rootCmd *cobra.Command) {
@@ -151,7 +149,6 @@ func addUploadCmd(rootCmd *cobra.Command) {
 		),
 	}
 	rootCmd.AddCommand(cmd)
-	bindFlags(cmd.Flags())
 	cmd.GroupID = groupIDGeneral
 }
 
@@ -171,7 +168,6 @@ func addCreateCmd(rootCmd *cobra.Command) {
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variable")
-	bindFlags(cmd.Flags())
 	cmd.GroupID = groupIDDeployment
 }
 
@@ -191,7 +187,6 @@ func addStopCmd(rootCmd *cobra.Command) {
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().IntVar(&timeout, "timeout", 10, "Set timeout value")
-	bindFlags(cmd.Flags())
 	cmd.GroupID = groupIDState
 }
 
@@ -207,7 +202,6 @@ func addStartCmd(rootCmd *cobra.Command) {
 		),
 	}
 	rootCmd.AddCommand(cmd)
-	bindFlags(cmd.Flags())
 	cmd.GroupID = groupIDState
 }
 
@@ -223,7 +217,6 @@ func addRemoveCmd(rootCmd *cobra.Command) {
 		),
 	}
 	rootCmd.AddCommand(cmd)
-	bindFlags(cmd.Flags())
 	cmd.GroupID = groupIDDeployment
 }
 
@@ -239,7 +232,6 @@ func addStatusCmd(rootCmd *cobra.Command) {
 		),
 	}
 	rootCmd.AddCommand(cmd)
-	bindFlags(cmd.Flags())
 	cmd.GroupID = groupIDMonitoring
 }
 
@@ -259,7 +251,6 @@ func addLogsCmd(rootCmd *cobra.Command) {
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().IntVar(&tail, "tail", 20, "Tail logs")
-	bindFlags(cmd.Flags())
 	cmd.GroupID = groupIDMonitoring
 }
 
@@ -366,7 +357,6 @@ func addDeployCmd(rootCmd *cobra.Command) {
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variables")
-	bindFlags(cmd.Flags())
 	cmd.GroupID = groupIDGeneral
 }
 
@@ -397,26 +387,35 @@ func Handler(yctx serverless.Context) {
 
 func initViper() error {
 	v := viper.GetViper()
-	v.SetConfigName("yc")
-	v.SetConfigType("yml")
-	v.AddConfigPath(".")
+	configFile := "./yc.yml"
+	if c, ok := os.LookupEnv("YC_CONFIG_FILE"); ok {
+		configFile = c
+	}
+	v.SetConfigFile(configFile)
+
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return err
 		}
 	}
-	return nil
-}
 
-func bindFlags(fs *pflag.FlagSet) {
-	v := viper.GetViper()
-	fs.VisitAll(func(f *pflag.Flag) {
-		configName := f.Name
-		if !f.Changed && v.IsSet(configName) {
-			val := v.Get(configName)
-			fs.Set(f.Name, fmt.Sprintf("%v", val))
-		}
-	})
+	if v.IsSet("zipper") {
+		zipperAddr = v.GetString("zipper")
+	}
+
+	if v.IsSet("app-secret") {
+		appSecret = v.GetString("app-secret")
+	}
+
+	if v.IsSet("sfn-name") {
+		sfnName = v.GetString("sfn-name")
+	}
+
+	if v.IsSet("mesh-num") {
+		meshNum = v.GetUint32("mesh-num")
+	}
+
+	return nil
 }
 
 func main() {
@@ -442,12 +441,6 @@ func main() {
 		Use:   "yc",
 		Short: "Manage your Geo-distributd Serverless on Vivgrid.com from the command line",
 	}
-
-	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper service endpoint")
-	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "Vivgrid APP_SECRET")
-	rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Multi-region support")
-	rootCmd.PersistentFlags().StringVar(&sfnName, "sfn-name", "", "Serverless name")
-	bindFlags(rootCmd.PersistentFlags())
 
 	addVersionCmd(rootCmd)
 	addUploadCmd(rootCmd)
