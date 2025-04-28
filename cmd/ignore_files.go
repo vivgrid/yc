@@ -11,8 +11,8 @@ import (
 )
 
 // ToZipWithExclusions creates a zip file from src, ignoring files that match
-// the ignore patterns from vivgridIgnoreFile or any applicable .gitignore rule.
-func ZipWithExclusions(src, dst, vivgridIgnoreFile string) error {
+// the ignore patterns from .gitignore rule.
+func ZipWithExclusions(src, dst string) error {
 	zipFile, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -22,7 +22,6 @@ func ZipWithExclusions(src, dst, vivgridIgnoreFile string) error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	vivMatcher, _ := dotignore.NewPatternMatcherFromFile(".vivgridignore")
 	gitMatcher, _ := dotignore.NewPatternMatcherFromFile(".gitignore")
 
 	// traverse the src directory, check each file against the ignore patterns
@@ -40,11 +39,8 @@ func ZipWithExclusions(src, dst, vivgridIgnoreFile string) error {
 
 		// check if the file should be ignored
 		isIgnored := false
-		if vivMatcher != nil {
-			isIgnored, _ = vivMatcher.Matches(path)
-		}
 
-		if gitMatcher != nil && !isIgnored {
+		if gitMatcher != nil {
 			isIgnored, _ = gitMatcher.Matches(path)
 		}
 
@@ -68,6 +64,7 @@ func ZipWithExclusions(src, dst, vivgridIgnoreFile string) error {
 		if err != nil {
 			return err
 		}
+
 		// Ensure consistent use of forward slashes.
 		header.Name = filepath.ToSlash(relPath)
 		header.Method = zip.Deflate

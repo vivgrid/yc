@@ -79,28 +79,8 @@ func addUploadCmd(rootCmd *cobra.Command) {
 					defer os.Remove(zipPath)
 					defer f.Close()
 
-					// create a file with name .vivgridignore if it not exists
-					vivgridIgnoreFile := path.Join(src, ".vivgridignore")
-					if _, err := os.Stat(vivgridIgnoreFile); os.IsNotExist(err) {
-						// create the file
-						f, err := os.Create(vivgridIgnoreFile)
-						if err != nil {
-							return err
-						}
-						defer f.Close()
-
-						ignorePatterns := []string{".git", ".gitignore", "node_modules/", "yc.yml", ".vivgridignore", ".wrapper.ts", "*.js"}
-						// write the patterns to the file
-						for _, pattern := range ignorePatterns {
-							_, err = f.WriteString(pattern + "\n")
-							if err != nil {
-								return err
-							}
-						}
-					}
-
 					// Create custom ToZip function with exclusions
-					err = ZipWithExclusions(src, zipPath, vivgridIgnoreFile)
+					err = ZipWithExclusions(src, zipPath)
 					if err != nil {
 						return err
 					}
