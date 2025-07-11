@@ -414,7 +414,7 @@ func main() {
 
 	rootCmd := &cobra.Command{
 		Use:   "yc",
-		Short: "Manage your Geo-distributd Serverless on Vivgrid.com from the command line",
+		Short: "Manage your Geo-distributed Serverless on Vivgrid.com from the command line",
 	}
 
 	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Zipper address")
