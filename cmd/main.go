@@ -394,8 +394,6 @@ func initViper() error {
 
 	if v.IsSet("mesh-num") {
 		meshNum = v.GetUint32("mesh-num")
-	} else {
-		meshNum = 7
 	}
 
 	return nil
