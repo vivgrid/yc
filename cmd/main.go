@@ -23,10 +23,10 @@ import (
 
 var (
 	target     string
-	zipperAddr string = "zipper.vivgrid.com:9000"
+	zipperAddr string
 	appSecret  string
 	sfnName    string
-	meshNum    uint32 = 7
+	meshNum    uint32
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
 )
@@ -373,8 +373,9 @@ func initViper() error {
 	}
 	v.SetConfigFile(configFile)
 
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+	if _, err := os.Stat(configFile); err == nil {
+		err = v.ReadInConfig()
+		if err != nil {
 			return err
 		}
 	}
@@ -411,15 +412,20 @@ func main() {
 		os.Setenv("YOMO_LOG_ERROR_OUTPUT", "/dev/null")
 	}
 
+	rootCmd := &cobra.Command{
+		Use:   "yc",
+		Short: "Manage your Geo-distributed Serverless on Vivgrid.com from the command line",
+	}
+
+	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Zipper address")
+	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "App secret")
+	rootCmd.PersistentFlags().StringVar(&sfnName, "sfn-name", "my_first_llm_function_tool", "Serverless function name")
+	rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
+
 	err = initViper()
 	if err != nil {
 		fmt.Println("init viper error:", err)
 		os.Exit(1)
-	}
-
-	rootCmd := &cobra.Command{
-		Use:   "yc",
-		Short: "Manage your Geo-distributd Serverless on Vivgrid.com from the command line",
 	}
 
 	addVersionCmd(rootCmd)
