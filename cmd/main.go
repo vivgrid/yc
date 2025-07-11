@@ -392,9 +392,7 @@ func initViper() error {
 		sfnName = v.GetString("tool-name")
 	}
 
-	if v.IsSet("mesh-num") {
-		meshNum = v.GetUint32("mesh-num")
-	}
+	meshNum = 7
 
 	return nil
 }
