@@ -384,17 +384,15 @@ func initViper() error {
 		zipperAddr = v.GetString("zipper")
 	}
 
-	if v.IsSet("app-secret") {
-		appSecret = v.GetString("app-secret")
+	if v.IsSet("secret") {
+		appSecret = v.GetString("secret")
 	}
 
-	if v.IsSet("sfn-name") {
-		sfnName = v.GetString("sfn-name")
+	if v.IsSet("tool-name") {
+		sfnName = v.GetString("tool-name")
 	}
 
-	if v.IsSet("mesh-num") {
-		meshNum = v.GetUint32("mesh-num")
-	}
+	meshNum = 7
 
 	return nil
 }
@@ -414,13 +412,13 @@ func main() {
 
 	rootCmd := &cobra.Command{
 		Use:   "yc",
-		Short: "Manage your Geo-distributed Serverless on Vivgrid.com from the command line",
+		Short: "Manage your globally deployed Serverless LLM Functions on vivgrid.com from the command line",
 	}
 
 	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Zipper address")
-	rootCmd.PersistentFlags().StringVar(&appSecret, "app-secret", "", "App secret")
-	rootCmd.PersistentFlags().StringVar(&sfnName, "sfn-name", "my_first_llm_function_tool", "Serverless function name")
-	rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
+	rootCmd.PersistentFlags().StringVar(&appSecret, "secret", "", "App secret")
+	rootCmd.PersistentFlags().StringVar(&sfnName, "tool-name", "my_first_llm_function_tool", "Serverless LLM Function name")
+	// rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
 
 	err = initViper()
 	if err != nil {
