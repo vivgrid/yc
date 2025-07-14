@@ -5,3 +5,7 @@ build:
 .PHONY: clean
 clean:
 		rm bin/*
+
+.PHONY: doc
+doc: build
+	bin/yc doc
