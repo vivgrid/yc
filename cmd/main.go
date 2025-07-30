@@ -394,22 +394,17 @@ func main() {
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDGeneral,
-		Title: colorGreen + "General" + colorReset,
+		Title: colorBlue + "General" + colorReset,
 	})
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDDeployment,
-		Title: colorGreen + "Manage serverless deployment" + colorReset,
-	})
-
-	rootCmd.AddGroup(&cobra.Group{
-		ID:    groupIDState,
-		Title: colorGreen + "Manage serverless state" + colorReset,
+		Title: colorBlue + "Manage serverless deployment" + colorReset,
 	})
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDMonitoring,
-		Title: colorGreen + "Observability" + colorReset,
+		Title: colorBlue + "Observability" + colorReset,
 	})
 
 	err = rootCmd.Execute()
@@ -426,5 +421,5 @@ const (
 	groupIDGeneral    = "general"
 
 	colorReset = "\033[0m"
-	colorGreen = "\033[34m"
+	colorBlue  = "\033[34m"
 )
