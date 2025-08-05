@@ -151,40 +151,6 @@ func addCreateCmd(rootCmd *cobra.Command) {
 	cmd.GroupID = groupIDDeployment
 }
 
-func addStopCmd(rootCmd *cobra.Command) {
-	var timeout int
-	cmd := &cobra.Command{
-		Use:   "stop",
-		Short: "Stop the running serverless",
-		Args:  cobra.ExactArgs(0),
-		Run: run(
-			pkg.TAG_REQUEST_STOP,
-			&pkg.ReqMsgStop{
-				Timeout: &timeout,
-			},
-			nil,
-		),
-	}
-	rootCmd.AddCommand(cmd)
-	cmd.Flags().IntVar(&timeout, "timeout", 10, "Set timeout value")
-	cmd.GroupID = groupIDState
-}
-
-func addStartCmd(rootCmd *cobra.Command) {
-	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Start the serverless",
-		Args:  cobra.ExactArgs(0),
-		Run: run(
-			pkg.TAG_REQUEST_START,
-			&pkg.ReqMsgStart{},
-			nil,
-		),
-	}
-	rootCmd.AddCommand(cmd)
-	cmd.GroupID = groupIDState
-}
-
 func addRemoveCmd(rootCmd *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "remove",
@@ -223,9 +189,7 @@ func addLogsCmd(rootCmd *cobra.Command) {
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_LOGS,
-			&pkg.ReqMsgLogs{
-				Tail: &tail,
-			},
+			&pkg.ReqMsgLogs{},
 			nil,
 		),
 	}
@@ -298,7 +262,7 @@ func addDeployCmd(rootCmd *cobra.Command) {
 	var envs []string
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> stop -> remove -> create)",
+		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> remove -> create)",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			yc := os.Args[0]
@@ -307,12 +271,6 @@ func addDeployCmd(rootCmd *cobra.Command) {
 			err := execProcess(yc, "upload", src)
 			if err != nil {
 				fmt.Println("yc upload error:", err)
-				os.Exit(1)
-			}
-
-			err = execProcess(yc, "stop")
-			if err != nil {
-				fmt.Println("yc stop error:", err)
 				os.Exit(1)
 			}
 
@@ -349,9 +307,9 @@ func Handler(yctx serverless.Context) {
 	}
 
 	if res.Error != "" {
-		fmt.Printf("[%s.%s] ERROR: %s\n", res.MeshZone, res.MeshNode, res.Error)
+		fmt.Printf("[%s] ERROR: %s\n", res.MeshZone, res.Error)
 	} else if res.Msg != "" {
-		fmt.Printf("[%s.%s] OK: %s\n", res.MeshZone, res.MeshNode, res.Msg)
+		fmt.Printf("[%s] OK: %s\n", res.MeshZone, res.Msg)
 	}
 
 	if res.Done {
@@ -429,8 +387,6 @@ func main() {
 	addVersionCmd(rootCmd)
 	addUploadCmd(rootCmd)
 	addCreateCmd(rootCmd)
-	addStopCmd(rootCmd)
-	addStartCmd(rootCmd)
 	addRemoveCmd(rootCmd)
 	addStatusCmd(rootCmd)
 	addLogsCmd(rootCmd)
@@ -438,22 +394,17 @@ func main() {
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDGeneral,
-		Title: colorGreen + "General" + colorReset,
+		Title: colorBlue + "General" + colorReset,
 	})
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDDeployment,
-		Title: colorGreen + "Manage serverless deployment" + colorReset,
-	})
-
-	rootCmd.AddGroup(&cobra.Group{
-		ID:    groupIDState,
-		Title: colorGreen + "Manage serverless state" + colorReset,
+		Title: colorBlue + "Manage serverless deployment" + colorReset,
 	})
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDMonitoring,
-		Title: colorGreen + "Observability" + colorReset,
+		Title: colorBlue + "Observability" + colorReset,
 	})
 
 	err = rootCmd.Execute()
@@ -470,5 +421,5 @@ const (
 	groupIDGeneral    = "general"
 
 	colorReset = "\033[0m"
-	colorGreen = "\033[34m"
+	colorBlue  = "\033[34m"
 )
