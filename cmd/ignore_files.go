@@ -36,6 +36,7 @@ func ZipWithExclusions(src, dst string) error {
 		".git/",     // Git repository directory
 		".vscode/",  // VS Code settings directory
 		".DS_Store", // macOS system file
+		".env",      // Environment variable file
 	}
 	var builder strings.Builder
 	for _, p := range builtinPatterns {

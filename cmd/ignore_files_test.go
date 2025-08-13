@@ -107,6 +107,7 @@ func TestZipWithExclusions(t *testing.T) {
 		"node_modules/package.js",
 		"temp/cache.log",
 		"debug.log",
+		".env",
 	}
 
 	// Verify expected files are present
@@ -173,6 +174,7 @@ func TestZipWithExclusionsNoGitignore(t *testing.T) {
 		filepath.Join(testProject, "README.md"):                "# Simple Project",
 		filepath.Join(testProject, "src", "main.go"):           "package main\n\nfunc main() {}",
 		filepath.Join(testProject, "some.log"):                 "log content", // This should be included (no .gitignore)
+		filepath.Join(testProject, ".env"):                     "ENV_VAR=value",
 	}
 
 	for filePath, content := range testFiles {
