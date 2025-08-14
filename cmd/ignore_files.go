@@ -6,12 +6,21 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/codeglyph/go-dotignore"
 )
 
-// ToZipWithExclusions creates a zip file from src, ignoring files that match
-// the ignore patterns from .gitignore rule.
+// ZipWithExclusions creates a zip file from src, ignoring files that match
+// patterns found in .gitignore plus a set of built-in defaults.
+//
+// Built-in ignore patterns (always applied):
+//   - .git/     (Git repository directory)
+//   - .vscode/  (VS Code settings directory)
+//   - .DS_Store (macOS system file)
+//
+// If a .gitignore file exists in the source directory, its patterns will also be applied.
+// The function uses gitignore-style pattern matching for consistent behavior.
 func ZipWithExclusions(src, dst string) error {
 	zipFile, err := os.Create(dst)
 	if err != nil {
@@ -22,7 +31,32 @@ func ZipWithExclusions(src, dst string) error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	gitMatcher, _ := dotignore.NewPatternMatcherFromFile(".gitignore")
+	// Build unified ignore matcher: built-in patterns + optional .gitignore contents.
+	builtinPatterns := []string{
+		".git/",     // Git repository directory
+		".vscode/",  // VS Code settings directory
+		".DS_Store", // macOS system file
+		".env",      // Environment variable file
+	}
+	var builder strings.Builder
+	for _, p := range builtinPatterns {
+		builder.WriteString(p)
+		builder.WriteString("\n")
+	}
+
+	// Look for .gitignore in the source directory, not current working directory
+	gitignorePath := filepath.Join(src, ".gitignore")
+	if data, err := os.ReadFile(gitignorePath); err == nil {
+		log.Printf("Found .gitignore at %s, applying additional patterns", gitignorePath)
+		builder.Write(data)
+		if !strings.HasSuffix(builder.String(), "\n") {
+			builder.WriteString("\n")
+		}
+	}
+	matcher, err := dotignore.NewPatternMatcherFromReader(strings.NewReader(builder.String()))
+	if err != nil {
+		return err
+	}
 
 	// traverse the src directory, check each file against the ignore patterns
 	// and add it to the zip file if it doesn't match
@@ -32,26 +66,24 @@ func ZipWithExclusions(src, dst string) error {
 			return err
 		}
 
-		// ignore directories
-		if d.IsDir() {
-			return nil
-		}
-
-		// check if the file should be ignored
-		isIgnored := false
-
-		if gitMatcher != nil {
-			isIgnored, _ = gitMatcher.Matches(path)
-		}
-
-		if isIgnored {
-			return nil
-		}
-
-		// Compute relative path for zip header.
+		// Relative path (POSIX style) for matching and zip header.
 		relPath, err := filepath.Rel(src, path)
 		if err != nil {
 			return err
+		}
+		relPath = filepath.ToSlash(relPath)
+
+		if d.IsDir() {
+			if ignore, _ := matcher.Matches(relPath + "/"); ignore { // ensure directory semantics
+				log.Printf("Ignoring directory: %s", relPath)
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if ignore, _ := matcher.Matches(relPath); ignore {
+			log.Printf("Ignoring file: %s", relPath)
+			return nil
 		}
 
 		// add the file to the zip archive
@@ -65,8 +97,8 @@ func ZipWithExclusions(src, dst string) error {
 			return err
 		}
 
-		// Ensure consistent use of forward slashes.
-		header.Name = filepath.ToSlash(relPath)
+		// relPath already slash-normalized above.
+		header.Name = relPath
 		header.Method = zip.Deflate
 
 		writer, err := zipWriter.CreateHeader(header)
@@ -79,7 +111,11 @@ func ZipWithExclusions(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if closeErr := f.Close(); closeErr != nil {
+				log.Printf("Warning: failed to close file %s: %v", path, closeErr)
+			}
+		}()
 
 		_, err = io.Copy(writer, f)
 		return err
