@@ -354,7 +354,7 @@ func initViper() error {
 	}
 
 	if v.IsSet("zipper") {
-		zipperAddr = normalizeZipperAddr(v.GetString("zipper"))
+		zipperAddr = v.GetString("zipper")
 	}
 
 	if v.IsSet("secret") {
@@ -388,9 +388,9 @@ func main() {
 		Short: "Manage your globally deployed Serverless LLM Functions on vivgrid.com from the command line",
 	}
 
-	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com", "Zipper address (domain or domain:port, defaults to port 9000)")
-	rootCmd.PersistentFlags().StringVar(&appSecret, "secret", "", "App secret")
-	rootCmd.PersistentFlags().StringVar(&sfnName, "tool", "my_first_llm_tool", "Serverless LLM Function name")
+	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper endpoint")
+	rootCmd.PersistentFlags().StringVar(&appSecret, "secret", "", "Vivgrid App secret")
+	rootCmd.PersistentFlags().StringVar(&sfnName, "tool", "my_first_llm_tool", "Serverless LLM Tool name")
 	// rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
 
 	err = initViper()
