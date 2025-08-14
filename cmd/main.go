@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -30,6 +31,20 @@ var (
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
 )
+
+// normalizeZipperAddr ensures the zipper address has a port.
+// If no port is specified, it defaults to 9000.
+func normalizeZipperAddr(addr string) string {
+	if addr == "" {
+		return "zipper.vivgrid.com:9000"
+	}
+	// If the address already contains a port, return as-is
+	if strings.Contains(addr, ":") {
+		return addr
+	}
+	// If no port specified, add default port 9000
+	return addr + ":9000"
+}
 
 func execProcess(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
@@ -339,7 +354,7 @@ func initViper() error {
 	}
 
 	if v.IsSet("zipper") {
-		zipperAddr = v.GetString("zipper")
+		zipperAddr = normalizeZipperAddr(v.GetString("zipper"))
 	}
 
 	if v.IsSet("secret") {
@@ -373,7 +388,7 @@ func main() {
 		Short: "Manage your globally deployed Serverless LLM Functions on vivgrid.com from the command line",
 	}
 
-	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Zipper address")
+	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com", "Zipper address (domain or domain:port, defaults to port 9000)")
 	rootCmd.PersistentFlags().StringVar(&appSecret, "secret", "", "App secret")
 	rootCmd.PersistentFlags().StringVar(&sfnName, "tool", "my_first_llm_tool", "Serverless LLM Function name")
 	// rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
@@ -383,6 +398,9 @@ func main() {
 		fmt.Println("init viper error:", err)
 		os.Exit(1)
 	}
+
+	// Normalize zipperAddr after all configuration sources are processed
+	zipperAddr = normalizeZipperAddr(zipperAddr)
 
 	addVersionCmd(rootCmd)
 	addUploadCmd(rootCmd)
