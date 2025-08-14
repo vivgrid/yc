@@ -346,8 +346,8 @@ func initViper() error {
 		appSecret = v.GetString("secret")
 	}
 
-	if v.IsSet("tool-name") {
-		sfnName = v.GetString("tool-name")
+	if v.IsSet("tool") {
+		sfnName = v.GetString("tool")
 	}
 
 	meshNum = 7
@@ -375,7 +375,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Zipper address")
 	rootCmd.PersistentFlags().StringVar(&appSecret, "secret", "", "App secret")
-	rootCmd.PersistentFlags().StringVar(&sfnName, "tool-name", "my_first_llm_function_tool", "Serverless LLM Function name")
+	rootCmd.PersistentFlags().StringVar(&sfnName, "tool", "my_first_llm_tool", "Serverless LLM Function name")
 	// rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
 
 	err = initViper()
