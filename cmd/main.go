@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"sync/atomic"
 	"time"
@@ -29,18 +28,10 @@ var (
 	meshNum    uint32
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
+	envs       []string
 )
 
-func execProcess(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Dir = ""
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-func addVersionCmd(rootCmd *cobra.Command) {
+func addVersionCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Show version",
@@ -50,9 +41,11 @@ func addVersionCmd(rootCmd *cobra.Command) {
 		},
 	}
 	rootCmd.AddCommand(cmd)
+
+	return cmd
 }
 
-func addUploadCmd(rootCmd *cobra.Command) {
+func addUploadCmd(rootCmd *cobra.Command) *cobra.Command {
 	msg := &pkg.ReqMsgUpload{}
 	cmd := &cobra.Command{
 		Use:   "upload src_file[.go|.zip|dir]",
@@ -127,13 +120,14 @@ func addUploadCmd(rootCmd *cobra.Command) {
 				return nil
 			},
 		),
+		GroupID: groupIDGeneral,
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.GroupID = groupIDGeneral
+
+	return cmd
 }
 
-func addCreateCmd(rootCmd *cobra.Command) {
-	var envs []string
+func addCreateCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create serverless deployment and start it",
@@ -145,13 +139,15 @@ func addCreateCmd(rootCmd *cobra.Command) {
 			},
 			nil,
 		),
+		GroupID: groupIDDeployment,
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variable")
-	cmd.GroupID = groupIDDeployment
+
+	return cmd
 }
 
-func addRemoveCmd(rootCmd *cobra.Command) {
+func addRemoveCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Delete current serverless deployment",
@@ -161,12 +157,14 @@ func addRemoveCmd(rootCmd *cobra.Command) {
 			&pkg.ReqMsgRemove{},
 			nil,
 		),
+		GroupID: groupIDDeployment,
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.GroupID = groupIDDeployment
+
+	return cmd
 }
 
-func addStatusCmd(rootCmd *cobra.Command) {
+func addStatusCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show serverless status",
@@ -176,12 +174,14 @@ func addStatusCmd(rootCmd *cobra.Command) {
 			&pkg.ReqMsgStatus{},
 			nil,
 		),
+		GroupID: groupIDMonitoring,
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.GroupID = groupIDMonitoring
+
+	return cmd
 }
 
-func addLogsCmd(rootCmd *cobra.Command) {
+func addLogsCmd(rootCmd *cobra.Command) *cobra.Command {
 	var tail int
 	cmd := &cobra.Command{
 		Use:   "logs",
@@ -192,14 +192,16 @@ func addLogsCmd(rootCmd *cobra.Command) {
 			&pkg.ReqMsgLogs{},
 			nil,
 		),
+		GroupID: groupIDMonitoring,
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().IntVar(&tail, "tail", 20, "Tail logs")
-	cmd.GroupID = groupIDMonitoring
+
+	return cmd
 }
 
 func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.Command, args []string) {
-	return func(cmd *cobra.Command, args []string) {
+	return func(_ *cobra.Command, args []string) {
 		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(appSecret))
 		sfn.SetHandler(Handler)
 		sfn.SetObserveDataTags(pkg.ResponseTag(tag))
@@ -220,7 +222,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		defer source.Close()
 
 		if f != nil {
-			err = f(cmd.Flags().Args())
+			err = f(args)
 			if err != nil {
 				fmt.Println("exec cmd error:", err)
 				os.Exit(1)
@@ -258,44 +260,26 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 	}
 }
 
-func addDeployCmd(rootCmd *cobra.Command) {
-	var envs []string
+func addDeployCmd(rootCmd *cobra.Command, uploadCmd *cobra.Command, removeCmd *cobra.Command, createCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deploy",
+		Use:   "deploy src_file[.go|.zip|dir]",
 		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> remove -> create)",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			yc := os.Args[0]
+			meshNum = 7*2 + 1
 
-			src := args[0]
-			err := execProcess(yc, "upload", src)
-			if err != nil {
-				fmt.Println("yc upload error:", err)
-				os.Exit(1)
-			}
+			uploadCmd.Run(uploadCmd, args)
+			removeCmd.Run(removeCmd, args)
+			createCmd.Run(createCmd, args)
 
-			err = execProcess(yc, "remove")
-			if err != nil {
-				fmt.Println("yc remove error:", err)
-				os.Exit(1)
-			}
-
-			createArgs := []string{"create"}
-			for _, env := range envs {
-				createArgs = append(createArgs, "--env")
-				createArgs = append(createArgs, env)
-			}
-			err = execProcess(yc, createArgs...)
-			if err != nil {
-				fmt.Println("yc create error:", err)
-				os.Exit(1)
-			}
 			fmt.Println("Successfully!")
 		},
+		GroupID: groupIDGeneral,
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variables")
-	cmd.GroupID = groupIDGeneral
+
+	return cmd
 }
 
 func Handler(yctx serverless.Context) {
@@ -384,13 +368,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	addVersionCmd(rootCmd)
-	addUploadCmd(rootCmd)
-	addCreateCmd(rootCmd)
-	addRemoveCmd(rootCmd)
-	addStatusCmd(rootCmd)
-	addLogsCmd(rootCmd)
-	addDeployCmd(rootCmd)
+	uploadCmd := addUploadCmd(rootCmd)
+	removeCmd := addRemoveCmd(rootCmd)
+	createCmd := addCreateCmd(rootCmd)
+
+	_ = addVersionCmd(rootCmd)
+	_ = addStatusCmd(rootCmd)
+	_ = addLogsCmd(rootCmd)
+	_ = addDeployCmd(rootCmd, uploadCmd, removeCmd, createCmd)
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDGeneral,
@@ -416,7 +401,6 @@ func main() {
 
 const (
 	groupIDDeployment = "deployment"
-	groupIDState      = "state"
 	groupIDMonitoring = "monitoring"
 	groupIDGeneral    = "general"
 
