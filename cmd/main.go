@@ -31,6 +31,8 @@ var (
 	envs       []string
 )
 
+const defaultMeshNum uint32 = 7
+
 func addVersionCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
@@ -266,7 +268,7 @@ func addDeployCmd(rootCmd *cobra.Command, uploadCmd *cobra.Command, removeCmd *c
 		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> remove -> create)",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			meshNum = 7*2 + 1
+			meshNum = defaultMeshNum*2 + 1
 
 			uploadCmd.Run(uploadCmd, args)
 			removeCmd.Run(removeCmd, args)
@@ -334,7 +336,7 @@ func initViper() error {
 		sfnName = v.GetString("tool-name")
 	}
 
-	meshNum = 7
+	meshNum = defaultMeshNum
 
 	return nil
 }
