@@ -25,8 +25,8 @@ import (
 var (
 	target     string
 	zipperAddr string
-	appSecret  string
-	sfnName    string
+	secret     string // app secret
+	tool       string // sfn name
 	meshNum    uint32
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
@@ -215,7 +215,7 @@ func addLogsCmd(rootCmd *cobra.Command) {
 
 func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
-		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(appSecret))
+		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(secret))
 		sfn.SetHandler(Handler)
 		sfn.SetObserveDataTags(pkg.ResponseTag(tag))
 		sfn.SetWantedTarget(target)
@@ -226,7 +226,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		}
 		defer sfn.Close()
 
-		source := yomo.NewSource("yc-request", zipperAddr, yomo.WithCredential(appSecret))
+		source := yomo.NewSource("yc-request", zipperAddr, yomo.WithCredential(secret))
 		err = source.Connect()
 		if err != nil {
 			fmt.Println("source connect to zipper error:", err)
@@ -245,7 +245,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		req := &pkg.Request[T]{
 			Version: pkg.SpecVersion,
 			Target:  target,
-			SfnName: sfnName,
+			SfnName: tool,
 			Msg:     reqMsg,
 		}
 
@@ -358,11 +358,11 @@ func initViper() error {
 	}
 
 	if v.IsSet("secret") {
-		appSecret = v.GetString("secret")
+		secret = v.GetString("secret")
 	}
 
 	if v.IsSet("tool") {
-		sfnName = v.GetString("tool")
+		tool = v.GetString("tool")
 	}
 
 	meshNum = 7
@@ -389,8 +389,8 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper endpoint")
-	rootCmd.PersistentFlags().StringVar(&appSecret, "secret", "", "Vivgrid App secret")
-	rootCmd.PersistentFlags().StringVar(&sfnName, "tool", "my_first_llm_tool", "Serverless LLM Tool name")
+	rootCmd.PersistentFlags().StringVar(&secret, "secret", "", "Vivgrid App secret")
+	rootCmd.PersistentFlags().StringVar(&tool, "tool", "my_first_llm_tool", "Serverless LLM Tool name")
 	// rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
 
 	err = initViper()
