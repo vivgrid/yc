@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -23,8 +24,8 @@ import (
 var (
 	target     string
 	zipperAddr string
-	appSecret  string
-	sfnName    string
+	secret     string // app secret
+	tool       string // sfn name
 	meshNum    uint32
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
@@ -32,6 +33,20 @@ var (
 )
 
 const defaultMeshNum uint32 = 7
+
+// normalizeZipperAddr ensures the zipper address has a port.
+// If no port is specified, it defaults to 9000.
+func normalizeZipperAddr(addr string) string {
+	if addr == "" {
+		return "zipper.vivgrid.com:9000"
+	}
+	// If the address already contains a port, return as-is
+	if strings.Contains(addr, ":") {
+		return addr
+	}
+	// If no port specified, add default port 9000
+	return addr + ":9000"
+}
 
 func addVersionCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
@@ -203,8 +218,8 @@ func addLogsCmd(rootCmd *cobra.Command) *cobra.Command {
 }
 
 func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.Command, args []string) {
-	return func(_ *cobra.Command, args []string) {
-		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(appSecret))
+	return func(cmd *cobra.Command, args []string) {
+		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(secret))
 		sfn.SetHandler(Handler)
 		sfn.SetObserveDataTags(pkg.ResponseTag(tag))
 		sfn.SetWantedTarget(target)
@@ -215,7 +230,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		}
 		defer sfn.Close()
 
-		source := yomo.NewSource("yc-request", zipperAddr, yomo.WithCredential(appSecret))
+		source := yomo.NewSource("yc-request", zipperAddr, yomo.WithCredential(secret))
 		err = source.Connect()
 		if err != nil {
 			fmt.Println("source connect to zipper error:", err)
@@ -234,7 +249,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		req := &pkg.Request[T]{
 			Version: pkg.SpecVersion,
 			Target:  target,
-			SfnName: sfnName,
+			SfnName: tool,
 			Msg:     reqMsg,
 		}
 
@@ -329,11 +344,11 @@ func initViper() error {
 	}
 
 	if v.IsSet("secret") {
-		appSecret = v.GetString("secret")
+		secret = v.GetString("secret")
 	}
 
-	if v.IsSet("tool-name") {
-		sfnName = v.GetString("tool-name")
+	if v.IsSet("tool") {
+		tool = v.GetString("tool")
 	}
 
 	meshNum = defaultMeshNum
@@ -359,9 +374,9 @@ func main() {
 		Short: "Manage your globally deployed Serverless LLM Functions on vivgrid.com from the command line",
 	}
 
-	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Zipper address")
-	rootCmd.PersistentFlags().StringVar(&appSecret, "secret", "", "App secret")
-	rootCmd.PersistentFlags().StringVar(&sfnName, "tool-name", "my_first_llm_function_tool", "Serverless LLM Function name")
+	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper endpoint")
+	rootCmd.PersistentFlags().StringVar(&secret, "secret", "", "Vivgrid App secret")
+	rootCmd.PersistentFlags().StringVar(&tool, "tool", "my_first_llm_tool", "Serverless LLM Tool name")
 	// rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
 
 	err = initViper()
@@ -369,6 +384,9 @@ func main() {
 		fmt.Println("init viper error:", err)
 		os.Exit(1)
 	}
+
+	// Normalize zipperAddr after all configuration sources are processed
+	zipperAddr = normalizeZipperAddr(zipperAddr)
 
 	uploadCmd := addUploadCmd(rootCmd)
 	removeCmd := addRemoveCmd(rootCmd)
