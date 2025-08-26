@@ -26,13 +26,11 @@ var (
 	zipperAddr string
 	secret     string // app secret
 	tool       string // sfn name
-	meshNum    uint32
+	meshNum    uint32 = 3
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
 	envs       []string
 )
-
-const defaultMeshNum uint32 = 7
 
 // normalizeZipperAddr ensures the zipper address has a port.
 // If no port is specified, it defaults to 9000.
@@ -283,7 +281,7 @@ func addDeployCmd(rootCmd *cobra.Command, uploadCmd *cobra.Command, removeCmd *c
 		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> remove -> create)",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			meshNum = defaultMeshNum*2 + 1
+			meshNum = meshNum*2 + 1
 
 			uploadCmd.Run(uploadCmd, args)
 			removeCmd.Run(removeCmd, args)
@@ -351,7 +349,9 @@ func initViper() error {
 		tool = v.GetString("tool")
 	}
 
-	meshNum = defaultMeshNum
+	if v.IsSet("mesh") {
+		meshNum = v.GetUint32("mesh")
+	}
 
 	return nil
 }
@@ -377,7 +377,6 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper endpoint")
 	rootCmd.PersistentFlags().StringVar(&secret, "secret", "", "Vivgrid App secret")
 	rootCmd.PersistentFlags().StringVar(&tool, "tool", "my_first_llm_tool", "Serverless LLM Tool name")
-	// rootCmd.PersistentFlags().Uint32Var(&meshNum, "mesh-num", 7, "Number of mesh nodes")
 
 	err = initViper()
 	if err != nil {
