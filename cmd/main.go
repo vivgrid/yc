@@ -395,6 +395,7 @@ func main() {
 	_ = addStatusCmd(rootCmd)
 	_ = addLogsCmd(rootCmd)
 	_ = addDeployCmd(rootCmd, uploadCmd, removeCmd, createCmd)
+	addDocCmd(rootCmd)
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDGeneral,
