@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -23,24 +23,30 @@ import (
 
 var (
 	target     string
-	zipperAddr string = "zipper.vivgrid.com:9000"
-	appSecret  string
-	sfnName    string
-	meshNum    uint32 = 7
+	zipperAddr string
+	secret     string // app secret
+	tool       string // sfn name
+	meshNum    uint32 = 3
 	resCount   atomic.Uint32
 	cancel     context.CancelFunc
+	envs       []string
 )
 
-func execProcess(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Dir = ""
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+// normalizeZipperAddr ensures the zipper address has a port.
+// If no port is specified, it defaults to 9000.
+func normalizeZipperAddr(addr string) string {
+	if addr == "" {
+		return "zipper.vivgrid.com:9000"
+	}
+	// If the address already contains a port, return as-is
+	if strings.Contains(addr, ":") {
+		return addr
+	}
+	// If no port specified, add default port 9000
+	return addr + ":9000"
 }
 
-func addVersionCmd(rootCmd *cobra.Command) {
+func addVersionCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Show version",
@@ -50,9 +56,11 @@ func addVersionCmd(rootCmd *cobra.Command) {
 		},
 	}
 	rootCmd.AddCommand(cmd)
+
+	return cmd
 }
 
-func addUploadCmd(rootCmd *cobra.Command) {
+func addUploadCmd(rootCmd *cobra.Command) *cobra.Command {
 	msg := &pkg.ReqMsgUpload{}
 	cmd := &cobra.Command{
 		Use:   "upload src_file[.go|.zip|dir]",
@@ -127,13 +135,14 @@ func addUploadCmd(rootCmd *cobra.Command) {
 				return nil
 			},
 		),
+		GroupID: groupIDGeneral,
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.GroupID = groupIDGeneral
+
+	return cmd
 }
 
-func addCreateCmd(rootCmd *cobra.Command) {
-	var envs []string
+func addCreateCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create serverless deployment and start it",
@@ -145,47 +154,15 @@ func addCreateCmd(rootCmd *cobra.Command) {
 			},
 			nil,
 		),
+		GroupID: groupIDDeployment,
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variable")
-	cmd.GroupID = groupIDDeployment
+
+	return cmd
 }
 
-func addStopCmd(rootCmd *cobra.Command) {
-	var timeout int
-	cmd := &cobra.Command{
-		Use:   "stop",
-		Short: "Stop the running serverless",
-		Args:  cobra.ExactArgs(0),
-		Run: run(
-			pkg.TAG_REQUEST_STOP,
-			&pkg.ReqMsgStop{
-				Timeout: &timeout,
-			},
-			nil,
-		),
-	}
-	rootCmd.AddCommand(cmd)
-	cmd.Flags().IntVar(&timeout, "timeout", 10, "Set timeout value")
-	cmd.GroupID = groupIDState
-}
-
-func addStartCmd(rootCmd *cobra.Command) {
-	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Start the serverless",
-		Args:  cobra.ExactArgs(0),
-		Run: run(
-			pkg.TAG_REQUEST_START,
-			&pkg.ReqMsgStart{},
-			nil,
-		),
-	}
-	rootCmd.AddCommand(cmd)
-	cmd.GroupID = groupIDState
-}
-
-func addRemoveCmd(rootCmd *cobra.Command) {
+func addRemoveCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Delete current serverless deployment",
@@ -195,12 +172,14 @@ func addRemoveCmd(rootCmd *cobra.Command) {
 			&pkg.ReqMsgRemove{},
 			nil,
 		),
+		GroupID: groupIDDeployment,
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.GroupID = groupIDDeployment
+
+	return cmd
 }
 
-func addStatusCmd(rootCmd *cobra.Command) {
+func addStatusCmd(rootCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show serverless status",
@@ -210,12 +189,14 @@ func addStatusCmd(rootCmd *cobra.Command) {
 			&pkg.ReqMsgStatus{},
 			nil,
 		),
+		GroupID: groupIDMonitoring,
 	}
 	rootCmd.AddCommand(cmd)
-	cmd.GroupID = groupIDMonitoring
+
+	return cmd
 }
 
-func addLogsCmd(rootCmd *cobra.Command) {
+func addLogsCmd(rootCmd *cobra.Command) *cobra.Command {
 	var tail int
 	cmd := &cobra.Command{
 		Use:   "logs",
@@ -223,20 +204,20 @@ func addLogsCmd(rootCmd *cobra.Command) {
 		Args:  cobra.ExactArgs(0),
 		Run: run(
 			pkg.TAG_REQUEST_LOGS,
-			&pkg.ReqMsgLogs{
-				Tail: &tail,
-			},
+			&pkg.ReqMsgLogs{},
 			nil,
 		),
+		GroupID: groupIDMonitoring,
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().IntVar(&tail, "tail", 20, "Tail logs")
-	cmd.GroupID = groupIDMonitoring
+
+	return cmd
 }
 
 func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
-		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(appSecret))
+		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(secret))
 		sfn.SetHandler(Handler)
 		sfn.SetObserveDataTags(pkg.ResponseTag(tag))
 		sfn.SetWantedTarget(target)
@@ -247,7 +228,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		}
 		defer sfn.Close()
 
-		source := yomo.NewSource("yc-request", zipperAddr, yomo.WithCredential(appSecret))
+		source := yomo.NewSource("yc-request", zipperAddr, yomo.WithCredential(secret))
 		err = source.Connect()
 		if err != nil {
 			fmt.Println("source connect to zipper error:", err)
@@ -256,7 +237,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		defer source.Close()
 
 		if f != nil {
-			err = f(cmd.Flags().Args())
+			err = f(args)
 			if err != nil {
 				fmt.Println("exec cmd error:", err)
 				os.Exit(1)
@@ -266,7 +247,7 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 		req := &pkg.Request[T]{
 			Version: pkg.SpecVersion,
 			Target:  target,
-			SfnName: sfnName,
+			SfnName: tool,
 			Msg:     reqMsg,
 		}
 
@@ -294,50 +275,26 @@ func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.C
 	}
 }
 
-func addDeployCmd(rootCmd *cobra.Command) {
-	var envs []string
+func addDeployCmd(rootCmd *cobra.Command, uploadCmd *cobra.Command, removeCmd *cobra.Command, createCmd *cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deploy",
-		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> stop -> remove -> create)",
+		Use:   "deploy src_file[.go|.zip|dir]",
+		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> remove -> create)",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			yc := os.Args[0]
+			meshNum = meshNum*2 + 1
 
-			src := args[0]
-			err := execProcess(yc, "upload", src)
-			if err != nil {
-				fmt.Println("yc upload error:", err)
-				os.Exit(1)
-			}
+			uploadCmd.Run(uploadCmd, args)
+			removeCmd.Run(removeCmd, args)
+			createCmd.Run(createCmd, args)
 
-			err = execProcess(yc, "stop")
-			if err != nil {
-				fmt.Println("yc stop error:", err)
-				os.Exit(1)
-			}
-
-			err = execProcess(yc, "remove")
-			if err != nil {
-				fmt.Println("yc remove error:", err)
-				os.Exit(1)
-			}
-
-			createArgs := []string{"create"}
-			for _, env := range envs {
-				createArgs = append(createArgs, "--env")
-				createArgs = append(createArgs, env)
-			}
-			err = execProcess(yc, createArgs...)
-			if err != nil {
-				fmt.Println("yc create error:", err)
-				os.Exit(1)
-			}
 			fmt.Println("Successfully!")
 		},
+		GroupID: groupIDGeneral,
 	}
 	rootCmd.AddCommand(cmd)
 	cmd.Flags().StringArrayVar(&envs, "env", nil, "Set environment variables")
-	cmd.GroupID = groupIDGeneral
+
+	return cmd
 }
 
 func Handler(yctx serverless.Context) {
@@ -349,9 +306,9 @@ func Handler(yctx serverless.Context) {
 	}
 
 	if res.Error != "" {
-		fmt.Printf("[%s.%s] ERROR: %s\n", res.MeshZone, res.MeshNode, res.Error)
+		fmt.Printf("[%s] ERROR: %s\n", res.MeshZone, res.Error)
 	} else if res.Msg != "" {
-		fmt.Printf("[%s.%s] OK: %s\n", res.MeshZone, res.MeshNode, res.Msg)
+		fmt.Printf("[%s] OK: %s\n", res.MeshZone, res.Msg)
 	}
 
 	if res.Done {
@@ -373,8 +330,9 @@ func initViper() error {
 	}
 	v.SetConfigFile(configFile)
 
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+	if _, err := os.Stat(configFile); err == nil {
+		err = v.ReadInConfig()
+		if err != nil {
 			return err
 		}
 	}
@@ -383,16 +341,16 @@ func initViper() error {
 		zipperAddr = v.GetString("zipper")
 	}
 
-	if v.IsSet("app-secret") {
-		appSecret = v.GetString("app-secret")
+	if v.IsSet("secret") {
+		secret = v.GetString("secret")
 	}
 
-	if v.IsSet("sfn-name") {
-		sfnName = v.GetString("sfn-name")
+	if v.IsSet("tool") {
+		tool = v.GetString("tool")
 	}
 
-	if v.IsSet("mesh-num") {
-		meshNum = v.GetUint32("mesh-num")
+	if v.IsSet("mesh") {
+		meshNum = v.GetUint32("mesh")
 	}
 
 	return nil
@@ -411,46 +369,47 @@ func main() {
 		os.Setenv("YOMO_LOG_ERROR_OUTPUT", "/dev/null")
 	}
 
+	rootCmd := &cobra.Command{
+		Use:   "yc",
+		Short: "Manage your globally deployed Serverless LLM Functions on vivgrid.com from the command line",
+	}
+
+	rootCmd.PersistentFlags().StringVar(&zipperAddr, "zipper", "zipper.vivgrid.com:9000", "Vivgrid zipper endpoint")
+	rootCmd.PersistentFlags().StringVar(&secret, "secret", "", "Vivgrid App secret")
+	rootCmd.PersistentFlags().StringVar(&tool, "tool", "my_first_llm_tool", "Serverless LLM Tool name")
+
 	err = initViper()
 	if err != nil {
 		fmt.Println("init viper error:", err)
 		os.Exit(1)
 	}
 
-	rootCmd := &cobra.Command{
-		Use:   "yc",
-		Short: "Manage your Geo-distributd Serverless on Vivgrid.com from the command line",
-	}
+	// Normalize zipperAddr after all configuration sources are processed
+	zipperAddr = normalizeZipperAddr(zipperAddr)
 
-	addVersionCmd(rootCmd)
-	addUploadCmd(rootCmd)
-	addCreateCmd(rootCmd)
-	addStopCmd(rootCmd)
-	addStartCmd(rootCmd)
-	addRemoveCmd(rootCmd)
-	addStatusCmd(rootCmd)
-	addLogsCmd(rootCmd)
-	addDeployCmd(rootCmd)
+	uploadCmd := addUploadCmd(rootCmd)
+	removeCmd := addRemoveCmd(rootCmd)
+	createCmd := addCreateCmd(rootCmd)
+
+	_ = addVersionCmd(rootCmd)
+	_ = addStatusCmd(rootCmd)
+	_ = addLogsCmd(rootCmd)
+	_ = addDeployCmd(rootCmd, uploadCmd, removeCmd, createCmd)
 	addDocCmd(rootCmd)
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDGeneral,
-		Title: colorGreen + "General" + colorReset,
+		Title: colorBlue + "General" + colorReset,
 	})
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDDeployment,
-		Title: colorGreen + "Manage serverless deployment" + colorReset,
-	})
-
-	rootCmd.AddGroup(&cobra.Group{
-		ID:    groupIDState,
-		Title: colorGreen + "Manage serverless state" + colorReset,
+		Title: colorBlue + "Manage serverless deployment" + colorReset,
 	})
 
 	rootCmd.AddGroup(&cobra.Group{
 		ID:    groupIDMonitoring,
-		Title: colorGreen + "Observability" + colorReset,
+		Title: colorBlue + "Observability" + colorReset,
 	})
 
 	err = rootCmd.Execute()
@@ -462,10 +421,9 @@ func main() {
 
 const (
 	groupIDDeployment = "deployment"
-	groupIDState      = "state"
 	groupIDMonitoring = "monitoring"
 	groupIDGeneral    = "general"
 
 	colorReset = "\033[0m"
-	colorGreen = "\033[34m"
+	colorBlue  = "\033[34m"
 )
