@@ -28,6 +28,7 @@ var (
 	tool       string // sfn name
 	meshNum    uint32 = 3
 	resCount   atomic.Uint32
+	resErr     atomic.Value
 	cancel     context.CancelFunc
 	envs       []string
 )
@@ -284,8 +285,17 @@ func addDeployCmd(rootCmd *cobra.Command, uploadCmd *cobra.Command, removeCmd *c
 			meshNum = meshNum*2 + 1
 
 			uploadCmd.Run(uploadCmd, args)
+			if err := resErr.Load(); err != nil {
+				os.Exit(1)
+			}
 			removeCmd.Run(removeCmd, args)
+			if err := resErr.Load(); err != nil {
+				os.Exit(1)
+			}
 			createCmd.Run(createCmd, args)
+			if err := resErr.Load(); err != nil {
+				os.Exit(1)
+			}
 
 			fmt.Println("Successfully!")
 		},
@@ -307,6 +317,7 @@ func Handler(yctx serverless.Context) {
 
 	if res.Error != "" {
 		fmt.Printf("[%s] ERROR: %s\n", res.MeshZone, res.Error)
+		resErr.Store(res.Error)
 	} else if res.Msg != "" {
 		fmt.Printf("[%s] OK: %s\n", res.MeshZone, res.Msg)
 	}
@@ -316,7 +327,7 @@ func Handler(yctx serverless.Context) {
 	}
 	count := resCount.Load()
 	if count > 0 {
-		if yctx.Tag() == pkg.TAG_RESPONSE_UPLOAD || count >= meshNum {
+		if yctx.Tag() == pkg.TAG_RESPONSE_UPLOAD || count >= meshNum || resErr.Load() != nil {
 			cancel()
 		}
 	}
