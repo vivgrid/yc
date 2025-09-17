@@ -33,6 +33,22 @@ var (
 	envs       []string
 )
 
+// resetResponseState clears the per-command counters before issuing a request.
+func resetResponseState() {
+	resCount.Store(0)
+	resErr.Store("")
+}
+
+// lastError retrieves the latest error message recorded by the handler.
+func lastError() string {
+	if v := resErr.Load(); v != nil {
+		if msg, ok := v.(string); ok {
+			return msg
+		}
+	}
+	return ""
+}
+
 // normalizeZipperAddr ensures the zipper address has a port.
 // If no port is specified, it defaults to 9000.
 func normalizeZipperAddr(addr string) string {
@@ -218,6 +234,7 @@ func addLogsCmd(rootCmd *cobra.Command) *cobra.Command {
 
 func run[T any](tag uint32, reqMsg *T, f func([]string) error) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
+		resetResponseState()
 		sfn := yomo.NewStreamFunction("yc-response", zipperAddr, yomo.WithSfnCredential(secret))
 		sfn.SetHandler(Handler)
 		sfn.SetObserveDataTags(pkg.ResponseTag(tag))
@@ -282,18 +299,16 @@ func addDeployCmd(rootCmd *cobra.Command, uploadCmd *cobra.Command, removeCmd *c
 		Short: "Deploy your serverless, this is an alias of chaining commands (upload -> remove -> create)",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			meshNum = meshNum*2 + 1
-
 			uploadCmd.Run(uploadCmd, args)
-			if err := resErr.Load(); err != nil {
+			if errMsg := lastError(); errMsg != "" {
 				os.Exit(1)
 			}
 			removeCmd.Run(removeCmd, args)
-			if err := resErr.Load(); err != nil {
+			if errMsg := lastError(); errMsg != "" {
 				os.Exit(1)
 			}
 			createCmd.Run(createCmd, args)
-			if err := resErr.Load(); err != nil {
+			if errMsg := lastError(); errMsg != "" {
 				os.Exit(1)
 			}
 
@@ -327,7 +342,7 @@ func Handler(yctx serverless.Context) {
 	}
 	count := resCount.Load()
 	if count > 0 {
-		if yctx.Tag() == pkg.TAG_RESPONSE_UPLOAD || count >= meshNum || resErr.Load() != nil {
+		if yctx.Tag() == pkg.TAG_RESPONSE_UPLOAD || count >= meshNum || lastError() != "" {
 			cancel()
 		}
 	}
